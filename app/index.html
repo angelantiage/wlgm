@@ -127,6 +127,14 @@ body{margin:0;background:var(--bg);color:var(--txt);
   font-weight:700;border-radius:11px;padding:14px;font-size:15px;cursor:pointer}
 .guardar:disabled{opacity:.45}
 .explica{font-size:12.5px;color:var(--tenue);margin:0 0 18px;line-height:1.5}
+.regalo{background:var(--panel);border:1px solid var(--linea);border-radius:12px;
+  padding:14px;margin-bottom:9px}
+.regalo b{font-size:15px}
+.regalo .enl{background:#120f18;border:1px solid var(--linea);border-radius:9px;padding:10px;
+  font-size:11.5px;color:#B197FC;word-break:break-all;margin:9px 0;font-family:ui-monospace,monospace}
+.copiar{background:none;border:1px solid var(--linea);color:var(--tenue);border-radius:9px;
+  padding:9px 12px;font-size:13px;cursor:pointer;margin-right:6px}
+.nadie{text-align:center;color:var(--tenue);padding:34px 16px;font-size:13.5px;line-height:1.6}
 .tope a{color:#B197FC;cursor:pointer}
 </style>
 </head>
@@ -146,6 +154,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
   <div class="marca"><span class="logo">WLGM</span><span class="promesa">Trabaja menos, crece más</span></div>
   <div class="quien"><span id="soy"></span>
     <span style="display:flex;gap:7px">
+      <button class="mas" id="btn-regalos" style="background:#241d31;color:#B197FC">🎁 Enlaces</button>
       <button class="mas" id="btn-carpeta">+ Referidos</button>
       <button class="salir" id="btn-salir">Salir</button>
     </span></div>
@@ -159,6 +168,15 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
+</div>
+
+<div id="pantalla-regalos" class="wrap" hidden>
+  <button class="volver" id="btn-volver2">← Volver a mi día</button>
+  <div class="marca"><span class="logo" style="font-size:22px">Enlaces de regalo</span></div>
+  <p class="explica">Para cada clienta que ya atendiste: <b>su propio enlace</b> para que
+     se lo reenvíe a sus amigas. La amiga lo toca y <b>te escribe ella a ti</b>, con el
+     mensaje ya puesto. Tú no persigues a nadie — y ahí mismo queda su permiso.</p>
+  <div id="regalos"></div>
 </div>
 
 <div id="pantalla-carpeta" class="wrap" hidden>
@@ -223,6 +241,7 @@ const BOTONES = {
 };
 
 let sesion = null, gente = [], resumen = [], vista = "hoy", abierta = null;
+let miConsultora = {};
 
 /* ── conexión ── */
 const $ = s => document.querySelector(s);
@@ -260,7 +279,7 @@ async function entrar(nuevo){
 function salir(){
   sesion = null; localStorage.removeItem("wlgm_sesion");
   $("#pantalla-app").hidden = true; $("#pantalla-carpeta").hidden = true;
-  $("#pantalla-login").hidden = false;
+  $("#pantalla-regalos").hidden = true; $("#pantalla-login").hidden = false;
 }
 
 /* ── datos ── */
@@ -268,13 +287,14 @@ async function cargar(){
   const [cola, todos, yo] = await Promise.all([
     api("/rest/v1/mi_dia?select=*&order=orden.asc,proxima_fecha.asc"),
     api("/rest/v1/contactos?select=color,baja"),
-    api("/rest/v1/consultoras?select=nombre,clave"),
+    api("/rest/v1/consultoras?select=nombre,clave,whatsapp"),
   ]);
   gente = cola;
   const cuenta = {};
   todos.forEach(c=>{ const k = c.baja ? "gris" : (c.color || "nuevo"); cuenta[k]=(cuenta[k]||0)+1; });
   resumen = cuenta;
-  $("#soy").textContent = yo[0] ? yo[0].nombre : "";
+  miConsultora = yo[0] || {};
+  $("#soy").textContent = miConsultora.nombre || "";
 }
 
 /* ── pintar ── */
@@ -490,6 +510,71 @@ $("#btn-carpeta").onclick = abrirCarpeta;
 $("#btn-volver").onclick  = cerrarCarpeta;
 $("#btn-otra").onclick    = () => filaNueva().querySelector(".nom-ref").focus();
 $("#btn-guardar").onclick = guardarCarpeta;
+
+
+/* ── los enlaces de regalo ── */
+// La amiga toca el enlace y se le abre SU WhatsApp con el mensaje ya escrito,
+// dirigido a la directora. Ella escribe primero: ahí nace el permiso.
+function enlaceRegalo(referidora){
+  const wa = (miConsultora.whatsapp||"").replace(/\D/g,"");
+  const texto = `Hola, quiero agendar mi Sesión de Belleza 💕 Me la regaló ${referidora}.`;
+  return "https://wa.me/" + wa + "?text=" + encodeURIComponent(texto);
+}
+
+// Y esto es lo que la directora le manda a SU clienta, con el enlace adentro.
+function mensajeParaLaClienta(nombre, enlace){
+  const n = String(nombre||"").split(" ")[0];
+  return `💕 ¡Hola, ${n}! Como te comenté, tengo el gusto de regalarle una Sesión de `
+    + `Belleza a las amigas que tú escojas. ✨\n\nAquí te dejo el enlace para que se lo `
+    + `mandes a quien tú quieras:\n${enlace}\n\nElla solo tiene que tocarlo y me escribe `
+    + `directo — yo me encargo de todo lo demás. 💕\n\nY recuerda: por cada amiga que `
+    + `reciba su sesión, tú acumulas $10 en tu programa Refiere y Gana. 🎁`;
+}
+
+async function abrirRegalos(){
+  $("#pantalla-app").hidden = true;
+  $("#pantalla-carpeta").hidden = true;
+  $("#pantalla-regalos").hidden = false;
+  const caja = $("#regalos");
+
+  if (!(miConsultora.whatsapp||"").replace(/\D/g,"")){
+    caja.innerHTML = '<div class="nadie">Todavía no tienes tu WhatsApp guardado, '
+      + 'y sin eso el enlace no sabe a dónde mandar el mensaje.</div>';
+    return;
+  }
+  caja.innerHTML = '<div class="meta">Buscando a las que ya atendiste…</div>';
+  try{
+    // Solo puede regalar quien ya vivió la sesión: atendida, compró o quedó para después
+    const suyas = await api("/rest/v1/contactos?select=id,nombre,telefono,color"
+      + "&baja=eq.false&etapa=in.(atendida,compro,no_compro,registrada)&order=nombre.asc");
+    if (!suyas.length){
+      caja.innerHTML = '<div class="nadie">Aquí van a aparecer las clientas que ya atendiste.<br>'
+        + 'Cuando marques tu primera <b>“La atendí”</b>, ella podrá empezar a regalar sesiones.</div>';
+      return;
+    }
+    caja.innerHTML = suyas.map(c=>{
+      const enl = enlaceRegalo(c.nombre.split(" ")[0]);
+      const msj = mensajeParaLaClienta(c.nombre, enl);
+      const tel = String(c.telefono||"").replace(/\D/g,"");
+      const wa  = tel ? "https://wa.me/1"+tel+"?text="+encodeURIComponent(msj) : "";
+      return `<div class="regalo">
+        <b>${esc(c.nombre)}</b>
+        <div class="enl">${esc(enl)}</div>
+        ${wa?`<a class="wa" href="${esc(wa)}" target="_blank" rel="noopener">Mandárselo por WhatsApp</a>`:''}
+        <button class="copiar" data-copiar="${esc(enl)}">Copiar el enlace</button>
+      </div>`;
+    }).join("");
+    caja.querySelectorAll("[data-copiar]").forEach(b=>{
+      b.onclick = () => {
+        navigator.clipboard.writeText(b.dataset.copiar);
+        b.textContent = "✓ copiado"; setTimeout(()=>b.textContent="Copiar el enlace", 1600);
+      };
+    });
+  }catch(e){ caja.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+}
+
+$("#btn-regalos").onclick = abrirRegalos;
+$("#btn-volver2").onclick = () => { $("#pantalla-regalos").hidden = true; $("#pantalla-app").hidden = false; };
 
 async function arrancar(){
   try{
