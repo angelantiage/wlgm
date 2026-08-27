@@ -146,6 +146,24 @@ body{margin:0;background:var(--bg);color:var(--txt);
 .kpi{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:12px}
 .kpi b{display:block;font-size:21px;line-height:1.15}
 .kpi span{font-size:10.5px;color:var(--tenue);display:block;margin-top:2px}
+.kpi{cursor:pointer;transition:border-color .15s}
+.kpi:active,.kpi.abierto{border-color:#5a4a76}
+.kpi::after{content:"›";position:absolute;right:10px;top:9px;color:#4b4358;font-size:15px}
+.kpi{position:relative}
+.detkpi{background:#191521;border:1px solid #5a4a76;border-radius:12px;padding:13px;margin-bottom:16px}
+.detkpi h4{margin:0 0 9px;font-size:13px;color:#B197FC}
+.util{display:flex;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid var(--linea)}
+.util button{flex:1;background:none;border:1px solid var(--linea);color:var(--tenue);
+  border-radius:9px;padding:9px;font-size:12.5px;cursor:pointer}
+.util button:active{border-color:#5a4a76;color:var(--txt)}
+.editar{display:none;margin-top:10px}
+.editar.on{display:block}
+.editar input{width:100%;background:#120f18;border:1px solid var(--linea);color:var(--txt);
+  border-radius:9px;padding:10px;font-size:16px;margin-bottom:7px}
+.detkpi .it{display:flex;justify-content:space-between;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--linea);font-size:13.5px}
+.detkpi .it:last-child{border-bottom:0}
+.detkpi .it span{color:var(--tenue);font-size:12px;white-space:nowrap}
 .kpi.g b{color:#51CF66} .kpi.r b{color:#FF922B} .kpi.a b{color:#22D3D3} .kpi.m b{color:#B197FC}
 .veredicto{background:#1b2a1f;border-left:3px solid #51CF66;border-radius:8px;padding:11px 13px;
   font-size:13px;margin-bottom:18px;line-height:1.5}
@@ -422,6 +440,18 @@ function pintarDetalle(p){
         <button class="b" style="--c:#FF6B9D;flex:0 0 auto" data-confirmar="1">Guardar</button>
       </div>
       <div id="r-${p.id}"></div>
+      <div class="util">
+        <button data-editar="${p.id}">✎ Editar sus datos</button>
+        <button data-deshacer="${p.id}">↶ Deshacer lo último</button>
+      </div>
+      <div class="editar" id="e-${p.id}">
+        <input id="en-${p.id}" placeholder="Nombre" value="${esc(p.nombre||"")}">
+        <input id="et-${p.id}" placeholder="Teléfono" inputmode="numeric" value="${esc(p.telefono||"")}">
+        <input id="ep-${p.id}" placeholder="Tipo de piel (seca, mixta, grasa…)" value="${esc(p.tipo_piel||"")}">
+        <input id="ee-${p.id}" placeholder="Edad" inputmode="numeric" value="${esc(p.edad||"")}">
+        <input id="eo-${p.id}" placeholder="Qué le preocupa de su piel" value="${esc(p.preocupacion||"")}">
+        <button class="guardar" data-guardar="${p.id}">Guardar cambios</button>
+      </div>
     </div>`;
 
   caja.querySelectorAll(".b[data-r]").forEach(b=>{
@@ -430,6 +460,49 @@ function pintarDetalle(p){
       anotar(p, b.dataset.r, caja);
     };
   });
+  const bEd = caja.querySelector("[data-editar]");
+  if (bEd) bEd.onclick = () => caja.querySelector(".editar").classList.toggle("on");
+
+  const bGu = caja.querySelector("[data-guardar]");
+  if (bGu) bGu.onclick = async () => {
+    const zona = document.getElementById("r-"+p.id);
+    bGu.disabled = true; bGu.textContent = "Guardando…";
+    try{
+      const ed = parseInt(document.getElementById("ee-"+p.id).value);
+      await api("/rest/v1/rpc/wlgm_editar", {method:"POST", body:JSON.stringify({
+        p_contacto:p.id,
+        p_nombre:       document.getElementById("en-"+p.id).value,
+        p_telefono:     document.getElementById("et-"+p.id).value || null,
+        p_tipo_piel:    document.getElementById("ep-"+p.id).value,
+        p_edad:         isNaN(ed) ? null : ed,
+        p_preocupacion: document.getElementById("eo-"+p.id).value })});
+      zona.innerHTML = '<div class="aviso">Datos guardados.</div>';
+      await cargar(); pintarTira();
+      setTimeout(()=>{ abierta = null; pintarLista(); }, 1400);
+    }catch(e){ zona.innerHTML = '<div class="error">'+esc(e.message)+'</div>';
+      bGu.disabled = false; bGu.textContent = "Guardar cambios"; }
+  };
+
+  const bDes = caja.querySelector("[data-deshacer]");
+  if (bDes) bDes.onclick = async () => {
+    if (!confirm(`¿Deshacer lo último que anotaste de ${p.nombre}?\n\n`
+      + `Si fue "la atendí", también se quitan los seguimientos, la cita y los $10 de Refiere y Gana.`)) return;
+    const zona = document.getElementById("r-"+p.id);
+    bDes.disabled = true; zona.innerHTML = '<div class="meta">Deshaciendo…</div>';
+    try{
+      const d = await api("/rest/v1/rpc/wlgm_deshacer", {method:"POST",
+        body:JSON.stringify({ p_contacto:p.id })});
+      if (!d.ok){ zona.innerHTML = '<div class="meta">'+esc(d.mensaje)+'</div>'; bDes.disabled=false; return; }
+      const extra = (d.tambien_deshice||[]);
+      zona.innerHTML = `<div class="aviso"><b>${esc(d.nombre)}</b> vuelve a <b>${esc(d.volvio_a)}</b>.`
+        + (extra.length ? `<br>También quité: ${esc(extra.join(", "))}.` : "")
+        + (d.quedan_cambios ? `<br><span style="font-size:11.5px">Puedes seguir deshaciendo: quedan ${d.quedan_cambios} cambios atrás.</span>` : "")
+        + `</div>`;
+      await cargar(); pintarTira();
+      setTimeout(()=>{ abierta = null; pintarLista(); }, 2600);
+    }catch(e){ zona.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; bDes.disabled = false; }
+  };
+
   const g = caja.querySelector("[data-confirmar]");
   if (g) g.onclick = () => {
     const f = document.getElementById("f-"+p.id).value;
@@ -695,11 +768,51 @@ function listar(a, tope){
   return a.slice(0,-1).join(", ") + " y " + a[a.length-1];
 }
 
+
+/* ── al tocar un número de arriba, se abre de quién habla ── */
+let kpiAbierto = null;
+
+async function abrirKPI(cual){
+  const caja = $("#kpi-detalle");
+  document.querySelectorAll(".kpi").forEach(k=>k.classList.toggle("abierto", k.dataset.kpi===cual));
+  if (kpiAbierto === cual){ kpiAbierto = null; caja.innerHTML = ""; 
+    document.querySelectorAll(".kpi").forEach(k=>k.classList.remove("abierto")); return; }
+  kpiAbierto = cual;
+  caja.innerHTML = '<div class="detkpi"><div class="meta">Buscando…</div></div>';
+  try{
+    let h = "";
+    if (cual === "pagado"){
+      const p = await api("/rest/v1/ryg_pagos?select=*&order=fecha.desc");
+      h = `<h4>Lo que ya entregaste · ${p.length} pago${p.length==1?"":"s"}</h4>`
+        + (p.length ? p.map(x=>`<div class="it"><b>${esc(x.referidora)}</b>
+             <span>${$$(x.monto)} en ${esc(x.forma)} · ${x.cuantos} premio${x.cuantos==1?"":"s"}
+             · ${new Date(x.fecha).toLocaleDateString("es")}</span></div>`).join("")
+           : `<div class="it"><span>Todavía no le has pagado premio a nadie.</span></div>`);
+    } else {
+      const q = { deber:     "atendida=eq.true&cuenta_premio=eq.true&pagado=eq.false",
+                  ventas:    "atendida=eq.true&venta_total=gt.0",
+                  atendidas: "atendida=eq.true" }[cual];
+      const t = { deber:     "Premios que debes",
+                  ventas:    "Ventas que trajo el programa",
+                  atendidas: "Referidas que ya atendiste" }[cual];
+      const l = await api(`/rest/v1/ryg_referidas?select=*&${q}&order=atendida_en.desc`);
+      h = `<h4>${t} · ${l.length}</h4>`
+        + (l.length ? l.map(x=>`<div class="it"><b>${esc(x.referida)}</b>
+             <span>${cual==="ventas" ? $$(x.venta_total)+" · " : ""}${cual==="deber" ? $$(x.premio_usd)+" a " : "de "}${esc(String(x.referidora).split(" ")[0])}
+             ${x.atendida_en ? " · "+new Date(x.atendida_en).toLocaleDateString("es") : ""}</span></div>`).join("")
+           : `<div class="it"><span>${cual==="deber" ? "No le debes premio a nadie ahora mismo."
+                : cual==="ventas" ? "Todavía ninguna referida atendida te ha comprado. Anota las ventas al marcarlas."
+                : "Todavía no has atendido a ninguna referida."}</span></div>`);
+    }
+    caja.innerHTML = `<div class="detkpi">${h}</div>`;
+  }catch(e){ caja.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+}
+
 async function abrirRYG(){
   ["#pantalla-app","#pantalla-carpeta","#pantalla-regalos"].forEach(x=>$(x).hidden=true);
   $("#pantalla-ryg").hidden = false;
   $("#ryg-resumen").innerHTML = '<div class="meta">Sacando cuentas…</div>';
-  $("#ryg-lista").innerHTML = "";
+  $("#ryg-lista").innerHTML = ""; kpiAbierto = null;
   try{
     const [res, lista] = await Promise.all([
       api("/rest/v1/resumen_refiere_y_gana?select=*"),
@@ -710,12 +823,15 @@ async function abrirRYG(){
 
     $("#ryg-resumen").innerHTML = `
       <div class="kpis">
-        <div class="kpi r"><b>${$$(r.por_pagar)}</b><span>POR PAGAR</span></div>
-        <div class="kpi g"><b>${$$(r.ya_pagado)}</b><span>ya pagado · tu inversión</span></div>
-        <div class="kpi a"><b>${$$(vta)}</b><span>ventas que trajo</span></div>
-        <div class="kpi m"><b>${r.referidos_efectivos||0}</b><span>referidas atendidas</span></div>
+        <div class="kpi r" data-kpi="deber"><b>${$$(r.por_pagar)}</b><span>POR PAGAR</span></div>
+        <div class="kpi g" data-kpi="pagado"><b>${$$(r.ya_pagado)}</b><span>ya pagado · tu inversión</span></div>
+        <div class="kpi a" data-kpi="ventas"><b>${$$(vta)}</b><span>ventas que trajo</span></div>
+        <div class="kpi m" data-kpi="atendidas"><b>${r.referidos_efectivos||0}</b><span>referidas atendidas</span></div>
       </div>
+      <div id="kpi-detalle"></div>
       ${veredicto(inv, vta, r)}`;
+
+    document.querySelectorAll("[data-kpi]").forEach(k=>{ k.onclick = () => abrirKPI(k.dataset.kpi); });
 
     if (!lista.length){
       $("#ryg-lista").innerHTML = '<div class="nadie">Todavía nadie te ha referido a nadie.<br>'
