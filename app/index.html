@@ -728,7 +728,7 @@ async function abrirRYG(){
       const wa  = tel ? `https://wa.me/1${tel}?text=${encodeURIComponent(msj)}` : "";
       const si  = x.si_escribieron||[], no = x.no_escribieron||[];
       const det = (x.detalle||[]).map(d=>{ try{ return JSON.parse(d); }catch(e){ return null; } }).filter(Boolean);
-      const pend = det.filter(d=>d.conecto && !d.atendida);
+      const pend = det.filter(d=>!d.atendida && !d.baja);   // todas las que aún no atendió
       return `<div class="ref">
         <div class="cab"><b>${esc(x.referidora)}</b>
           <span class="plata" style="color:${Number(x.por_pagar)>0?'#FF922B':'#9c93aa'}">
@@ -738,7 +738,11 @@ async function abrirRYG(){
         ${si.length?`<div class="lin si">✓ te escribieron: ${esc(listar(si))}</div>`:""}
         ${no.length?`<div class="lin no">· faltan por escribir: ${esc(listar(no))}</div>`:""}
         ${wa?`<a class="wa" href="${esc(wa)}" target="_blank" rel="noopener" style="margin-top:9px">Mandarle su resumen</a>`:""}
-        ${pend.map(d=>`<button class="mini" data-atender="${d.id}" data-nom="${esc(d.nombre)}">✓ Atendí a ${esc(d.nombre.split(" ")[0])}</button>`).join("")}
+        ${pend.length?`<div class="lin" style="margin-top:9px">Marca a la que ya atendiste:</div>`:""}
+        ${pend.map(d=>`<button class="mini${d.cuenta?" on":""}" data-atender="${d.id}"
+            data-nom="${esc(d.nombre)}" data-cuenta="${d.cuenta?1:0}"
+            title="${d.cuenta?"acredita $10":"histórica: no acredita, te preguntaré"}"
+            >✓ ${esc(d.nombre.split(" ")[0])}${d.cuenta?" · $10":" · sin premio"}</button>`).join("")}
         ${Number(x.por_pagar)>0?`<button class="mini on" data-pagar="${x.referidora_id}" data-monto="${x.por_pagar}" data-nom="${esc(x.referidora)}">💵 Ya le pagué ${$$(x.por_pagar)}</button>`:""}
         <div id="ryg-${x.referidora_id}"></div>
       </div>`;
@@ -746,6 +750,13 @@ async function abrirRYG(){
 
     $("#ryg-lista").querySelectorAll("[data-atender]").forEach(b=>{
       b.onclick = async () => {
+        if (b.dataset.cuenta === "0"){
+          if (confirm(`${b.dataset.nom} es de tus referidas viejas y hoy no acredita premio.\n\n`
+            + `¿Le acredito los $10 a quien la refirió, ya que la atendiste hoy?`)){
+            try{ await api("/rest/v1/rpc/wlgm_activar_premio", {method:"POST",
+                   body:JSON.stringify({ p_referida:b.dataset.atender })}); }catch(e){}
+          }
+        }
         b.disabled = true; b.textContent = "guardando…";
         try{
           await api("/rest/v1/rpc/wlgm_anotar", {method:"POST", body:JSON.stringify({
