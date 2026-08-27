@@ -247,7 +247,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
-  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 15:41</p>
+  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 17:24</p>
 </div>
 
 <div id="pantalla-mudanza" class="wrap" hidden>
@@ -926,124 +926,106 @@ function bonito(t){
 
 async function verCampana(){
   try{
-    const f = await api("/rest/v1/mudanza_de_numero?select=id&aviso_numero_en=is.null");
+    const f = await api("/rest/v1/mudanza_de_numero?select=id,ya_atendida&aviso_numero_en=is.null");
     const caja = $("#campana-mudanza");
     if (!f.length){ caja.innerHTML = ""; return; }
+    const mias = f.filter(x=>x.ya_atendida).length;
     caja.innerHTML = `<div class="campana" id="ir-mudanza">
-        <b>📱 Te faltan ${f.length} por avisar de tu número nuevo</b>
-        <span>Mándaselos <b>desde tu número de siempre</b>. Así lo guardan antes de que
-        el nuevo les escriba — y de paso te sirve para volver a hablarles.</span></div>`;
+        <b>📱 Avísales de tu número nuevo${mias?` — empieza por tus ${mias} clientas`:""}</b>
+        <span>Te faltan ${f.length}. Mándaselos <b>desde tu número de siempre</b>, de un solo
+        envío con lista de difusión. Y de paso vuelves a hablarles.</span></div>`;
     $("#ir-mudanza").onclick = abrirMudanza;
   }catch(e){ }
 }
 
 
-function textoDifusion(){
-  const wa = bonito(miConsultora.whatsapp);
-  return `💕 ¡Hola! ¿Cómo estás? Gusto en saludarte. ✨\n\n`
-    + `Te cuento que ahora voy a manejar todo lo de mi trabajo desde otro número:\n\n`
-    + `📱 ${wa}\n\n`
-    + `Guárdalo y mándame un mensajito por ahí, para tenerte yo también. 💕`;
+function bloqueDifusion(grupo, titulo, texto){
+  const nums = grupo.map(p=>"+1"+String(p.telefono||"").replace(/\D/g,"")).filter(x=>x.length===12);
+  return `<div class="difu" data-grupo="${titulo}">
+      <h4>📢 ${esc(titulo)} · ${nums.length} de un solo envío</h4>
+      <p>Con una <b>lista de difusión</b> le llega a cada una como mensaje personal.
+         <b>Hazlo desde tu número de siempre:</b> la difusión solo llega a quien te tenga agendado.</p>
+      <div class="paso-n"><b>1.</b><span>WhatsApp → menú <b>⋮</b> → <b>Nueva difusión</b></span></div>
+      <div class="paso-n"><b>2.</b><span>Agrega estos ${nums.length} números</span></div>
+      <div class="paso-n"><b>3.</b><span>Pega el mensaje y envía</span></div>
+      <div class="txt" style="max-height:none">${esc(texto)}</div>
+      <button class="copiar" data-ct="${esc(texto)}">Copiar el mensaje</button>
+      <button class="copiar" data-cn="${nums.join(",")}">Copiar los ${nums.length} números</button>
+    </div>`;
 }
 
-function pintarDifusion(gente2){
-  const nums = gente2.map(p => "+1" + String(p.telefono||"").replace(/\D/g,"")).filter(x=>x.length===12);
-  const txt = textoDifusion();
-  $("#mudanza-difusion").innerHTML = `<div class="difu">
-      <h4>📢 Mándaselo a las ${nums.length} de un solo tirón</h4>
-      <p>Con una <b>lista de difusión</b> de WhatsApp le llega a cada una como mensaje
-         personal — no ven a las demás. <b>Hazlo desde tu número de siempre:</b> la difusión
-         solo le llega a quien te tenga agendado, y al nuevo todavía no lo tiene nadie.</p>
-
-      <div class="paso-n"><b>1.</b><span>En WhatsApp: menú <b>⋮</b> → <b>Nueva difusión</b></span></div>
-      <div class="paso-n"><b>2.</b><span>Agrega a tus clientas (WhatsApp permite hasta 256)</span></div>
-      <div class="paso-n"><b>3.</b><span>Pega este mensaje y envía</span></div>
-      <div class="paso-n"><b>4.</b><span>Vuelve aquí y toca <b>“Ya las mandé todas”</b></span></div>
-
-      <div class="txt" style="max-height:none">${esc(txt)}</div>
-      <button class="copiar" data-copiar-txt="1">Copiar el mensaje</button>
-      <button class="copiar" data-vernums="1">Ver los ${nums.length} números</button>
-      <div class="nums" id="lista-nums" hidden>${nums.join("\n")}</div>
-      <button class="copiar" data-copiar-nums="1" hidden id="cn">Copiar los números</button>
-      <button class="guardar" style="margin-top:11px" data-todas="1">✓ Ya las mandé todas</button>
-      <div id="difu-msg"></div>
+function pintarPersona(p){
+  const tel = String(p.telefono||"").replace(/\D/g,"");
+  return `<div class="mud">
+      <div class="cab"><b>${esc(p.nombre)}</b><span>${esc(p.por_que)}</span></div>
+      <a class="wa" href="https://wa.me/1${tel}?text=${encodeURIComponent(p.mensaje||"")}"
+         target="_blank" rel="noopener">Mandárselo por WhatsApp</a>
+      <button class="mini on" data-avise="${p.id}">✓ Ya le avisé</button>
     </div>`;
-
-  const q = $("#mudanza-difusion");
-  q.querySelector("[data-copiar-txt]").onclick = (e) => {
-    navigator.clipboard.writeText(txt);
-    e.target.textContent = "✓ copiado"; setTimeout(()=>e.target.textContent="Copiar el mensaje",1600);
-  };
-  q.querySelector("[data-vernums]").onclick = (e) => {
-    const n = $("#lista-nums"), c = $("#cn");
-    n.hidden = !n.hidden; c.hidden = n.hidden;
-    e.target.textContent = n.hidden ? `Ver los ${nums.length} números` : "Ocultar";
-  };
-  q.querySelector("[data-copiar-nums]").onclick = (e) => {
-    navigator.clipboard.writeText(nums.join("\n"));
-    e.target.textContent = "✓ copiados"; setTimeout(()=>e.target.textContent="Copiar los números",1600);
-  };
-  q.querySelector("[data-todas]").onclick = async (e) => {
-    if (!confirm(`¿Marcar las ${gente2.length} como avisadas?\n\nHazlo solo si ya mandaste la difusión.`)) return;
-    e.target.disabled = true; e.target.textContent = "Guardando…";
-    let ok = 0;
-    for (const p of gente2){
-      try{ await api("/rest/v1/rpc/wlgm_avise_del_numero", {method:"POST",
-             body:JSON.stringify({ p_contacto:p.id })}); ok++; }catch(err){}
-    }
-    $("#difu-msg").innerHTML = `<div class="aviso">Listo: ${ok} marcadas como avisadas.</div>`;
-    setTimeout(abrirMudanza, 1500);
-  };
 }
 
 async function abrirMudanza(){
   ["#pantalla-app","#pantalla-carpeta","#pantalla-regalos","#pantalla-ryg"].forEach(x=>$(x).hidden=true);
   $("#pantalla-mudanza").hidden = false;
   const caja = $("#mudanza-lista");
-  caja.innerHTML = '<div class="meta">Buscando…</div>';
   $("#mudanza-difusion").innerHTML = "";
+  caja.innerHTML = '<div class="meta">Buscando…</div>';
   try{
     const l = await api("/rest/v1/mudanza_de_numero?select=*&aviso_numero_en=is.null"
-      + "&order=prioridad.asc,venta_total.desc,nombre.asc&limit=" + TOPE_MUDANZA);
-    const todas = await api("/rest/v1/mudanza_de_numero?select=id,telefono,nombre&aviso_numero_en=is.null&order=prioridad.asc");
+                      + "&order=prioridad.asc,venta_total.desc,nombre.asc");
     if (!l.length){
-      $("#mudanza-difusion").innerHTML = "";
       caja.innerHTML = '<div class="nadie">Ya les avisaste a todas. 🎉<br>'
-        + 'Ahora sí puedes empezar a escribirles desde el número nuevo.</div>';
+        + 'Ahora sí puedes escribirles desde el número nuevo.</div>';
       return;
     }
-    pintarDifusion(todas);
-    caja.innerHTML = l.map(p=>{
-      const msj = `💕 ¡Hola, ${esc(String(p.nombre).split(" ")[0])}! Soy ${esc(String(p.yo).split(" ")[0])}, `
-        + `tu Consultor de Belleza Independiente. ✨\n\nTe escribo desde mi número de siempre para `
-        + `avisarte que ya tengo un número aparte solo para mi trabajo:\n\n📱 ${bonito(p.mi_whatsapp)}\n\n`
-        + `Guárdalo, para que sepas que soy yo cuando te escriba desde ahí. Por ese número te voy a `
-        + `estar acompañando con tu rutina y contándote las novedades. 💕\n\n¿Me confirmas que te llegó?`;
-      const tel = String(p.telefono||"").replace(/\D/g,"");
-      return `<div class="mud">
-        <div class="cab"><b>${esc(p.nombre)}</b><span>${esc(p.por_que)}</span></div>
-        <div class="txt">${esc(msj)}</div>
-        <a class="wa" href="https://wa.me/1${tel}?text=${encodeURIComponent(msj)}"
-           target="_blank" rel="noopener">Mandárselo solo a ella</a>
-        <button class="mini on" data-avise="${p.id}" data-nom="${esc(p.nombre)}">✓ Ya le avisé</button>
-      </div>`;
-    }).join("")
-    + (todas.length > l.length
-       ? `<p class="tope">Te quedan ${todas.length - l.length} más.
-          <b>No las mandes todas de un tirón:</b> un número que manda mucho de golpe
-          es lo que WhatsApp castiga. ${TOPE_MUDANZA} al día está bien.</p>` : "");
+    const mias  = l.filter(p=>p.ya_atendida);
+    const otras = l.filter(p=>!p.ya_atendida);
+    let h = "";
 
-    caja.querySelectorAll("[data-avise]").forEach(b=>{
-      b.onclick = async () => {
-        b.disabled = true; b.textContent = "guardando…";
-        try{
-          await api("/rest/v1/rpc/wlgm_avise_del_numero", {method:"POST",
-            body:JSON.stringify({ p_contacto:b.dataset.avise })});
-          b.closest(".mud").style.opacity = ".35";
-          b.textContent = "✓ avisada";
-        }catch(e){ b.textContent = "⚠ "+e.message; b.disabled = false; }
-      };
-    });
+    if (mias.length){
+      h += `<div class="grupo" style="margin-top:0">💗 Tus clientas — las que ya atendiste · ${mias.length}</div>`
+         + `<p class="explica" style="margin-bottom:12px">A ellas les hablas como siempre: <b>“hola, corazón”</b>.
+            Y el mensaje les pregunta por su piel, para que les den ganas de contestarte.</p>`
+         + bloqueDifusion(mias, "Tus clientas", mias[0].mensaje)
+         + `<p class="tope" style="margin:0 0 10px">…o mándaselo a cada una:</p>`
+         + mias.map(pintarPersona).join("");
+    }
+    if (otras.length){
+      h += `<div class="grupo">Las demás · ${otras.length}</div>`
+         + `<p class="explica" style="margin-bottom:12px">Todavía no las has atendido, así que
+            el mensaje va sin el “corazón” y sin preguntar por los poros.</p>`
+         + bloqueDifusion(otras, "Las demás", otras[0].mensaje)
+         + `<p class="tope" style="margin:0 0 10px">…o una por una:</p>`
+         + otras.map(pintarPersona).join("");
+    }
+    h += `<button class="guardar" style="margin-top:18px" data-todas="1">✓ Ya las mandé todas (${l.length})</button>
+          <div id="difu-msg"></div>`;
+    caja.innerHTML = h;
+
+    caja.querySelectorAll("[data-ct]").forEach(b=>{ b.onclick = () => {
+      navigator.clipboard.writeText(b.dataset.ct);
+      b.textContent = "✓ copiado"; setTimeout(()=>b.textContent="Copiar el mensaje",1600); }; });
+    caja.querySelectorAll("[data-cn]").forEach(b=>{ b.onclick = () => {
+      navigator.clipboard.writeText(b.dataset.cn.split(",").join("\n"));
+      const n = b.dataset.cn.split(",").length;
+      b.textContent = "✓ copiados"; setTimeout(()=>b.textContent=`Copiar los ${n} números`,1600); }; });
+    caja.querySelectorAll("[data-avise]").forEach(b=>{ b.onclick = async () => {
+      b.disabled = true; b.textContent = "guardando…";
+      try{ await api("/rest/v1/rpc/wlgm_avise_del_numero", {method:"POST",
+             body:JSON.stringify({ p_contacto:b.dataset.avise })});
+        b.closest(".mud").style.opacity = ".35"; b.textContent = "✓ avisada";
+      }catch(e){ b.textContent = "⚠ "+e.message; b.disabled = false; } }; });
+    caja.querySelector("[data-todas]").onclick = async (e) => {
+      if (!confirm(`¿Marcar las ${l.length} como avisadas?\n\nSolo si ya mandaste las difusiones.`)) return;
+      e.target.disabled = true; e.target.textContent = "Guardando…";
+      let ok = 0;
+      for (const p of l){
+        try{ await api("/rest/v1/rpc/wlgm_avise_del_numero", {method:"POST",
+               body:JSON.stringify({ p_contacto:p.id })}); ok++; }catch(err){}
+      }
+      $("#difu-msg").innerHTML = `<div class="aviso">Listo: ${ok} marcadas.</div>`;
+      setTimeout(abrirMudanza, 1500);
+    };
   }catch(e){ caja.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
 }
 
