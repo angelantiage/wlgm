@@ -22,3 +22,10 @@ y abrir http://localhost:8777
 - Verificado con la llave pública: un extraño recibe 0 filas de todo.
 - La llave que va en el HTML es la publishable: es pública a propósito.
   Lo que protege los datos es el RLS, no la llave.
+
+## En internet
+
+**https://wlgm-angel-guerra.vercel.app**
+
+Para volver a publicar después de cambiar `app/index.html`, se sube el archivo a
+Vercel otra vez. La dirección no cambia.
