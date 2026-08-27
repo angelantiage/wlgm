@@ -39,6 +39,18 @@ body{margin:0;background:var(--bg);color:var(--txt);
   box-shadow:0 0 9px var(--c);margin-bottom:6px}
 .t b{display:block;font-size:17px;line-height:1.1}
 .t span{font-size:10px;color:var(--tenue);display:block;margin-top:1px}
+.t{cursor:pointer;transition:border-color .15s}
+.t:active,.t.abierto{border-color:#5a4a76}
+.quienes{background:#191521;border:1px solid #5a4a76;border-radius:12px;padding:13px;margin-bottom:14px}
+.quienes h4{margin:0 0 9px;font-size:13px;display:flex;align-items:center;gap:7px}
+.quienes h4 i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 7px var(--c)}
+.quienes .p{display:flex;justify-content:space-between;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--linea);font-size:13.5px;cursor:pointer}
+.quienes .p:last-child{border-bottom:0}
+.quienes .p:active b{color:#B197FC}
+.quienes .p span{color:var(--tenue);font-size:11.5px;white-space:nowrap}
+.quienes .cerrar{background:none;border:0;color:var(--tenue);font-size:12px;cursor:pointer;
+  float:right;padding:0}
 
 /* ── pestañas ── */
 .tabs{display:flex;gap:8px;margin:6px 0 14px}
@@ -206,6 +218,8 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div class="tira" id="tira"></div>
 
+  <div id="color-detalle"></div>
+
   <div class="tabs">
     <button class="tab on" data-vista="hoy">Mi día</button>
     <button class="tab"    data-vista="todo">Toda mi lista</button>
@@ -213,7 +227,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
-  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 11:30</p>
+  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 12:33</p>
 </div>
 
 <div id="pantalla-ryg" class="wrap" hidden>
@@ -309,7 +323,7 @@ const BOTONES = {
 };
 
 let sesion = null, gente = [], resumen = [], vista = "hoy", abierta = null;
-let miConsultora = {};
+let miConsultora = {}, todosContactos = [], colorAbierto = null;
 
 /* ── conexión ── */
 const $ = s => document.querySelector(s);
@@ -355,10 +369,11 @@ function salir(){
 async function cargar(){
   const [cola, todos, yo] = await Promise.all([
     api("/rest/v1/mi_dia?select=*&order=orden.asc,proxima_fecha.asc"),
-    api("/rest/v1/contactos?select=color,baja"),
+    api("/rest/v1/contactos?select=id,nombre,color,baja,etapa,proxima_fecha,referida_por,telefono&order=nombre.asc"),
     api("/rest/v1/consultoras?select=nombre,clave,whatsapp,presentacion"),
   ]);
   gente = cola;
+  todosContactos = todos;
   const cuenta = {};
   todos.forEach(c=>{ const k = c.baja ? "gris" : (c.color || "nuevo"); cuenta[k]=(cuenta[k]||0)+1; });
   resumen = cuenta;
@@ -383,12 +398,69 @@ function pintarTira(){
   let h = "";
   for (const [c,hex,nom] of COLORES){
     const n = resumen[c]||0;
-    if (n) h += `<div class="t"><i style="--c:${hex}"></i><b>${n}</b><span>${esc(nom)}</span></div>`;
+    if (n) h += `<div class="t" data-color="${c}"><i style="--c:${hex}"></i><b>${n}</b><span>${esc(nom)}</span></div>`;
   }
-  if (resumen["nuevo"]) h += `<div class="t"><i style="--c:#2b2535;box-shadow:none"></i><b>${resumen["nuevo"]}</b><span>Sin contactar</span></div>`;
+  if (resumen["nuevo"]) h += `<div class="t" data-color="nuevo"><i style="--c:#2b2535;box-shadow:none"></i><b>${resumen["nuevo"]}</b><span>Sin contactar</span></div>`;
   $("#tira").innerHTML = h;
+  $("#tira").querySelectorAll("[data-color]").forEach(t=>{ t.onclick = () => abrirColor(t.dataset.color); });
   $("#leyenda").innerHTML = COLORES.map(([c,hex,nom])=>
     `<span class="lg"><i style="--c:${hex}"></i>${esc(nom)}</span>`).join("");
+}
+
+
+/* ── al tocar un color de la tira, se ve quién está adentro ── */
+const ETAPAS = {
+  nuevo:"nunca contactada", no_contesta:"no contesta", volver_llamar:"pidió que la llamaras",
+  conversando:"te contestó", citada:"citada", confirmada:"cita confirmada",
+  reagendar:"por re-agendar", atendida:"recibió su clase", compro:"compró",
+  no_compro:"no compró", muestras:"con muestras", entrevista:"le interesa el negocio",
+  registrada:"se registró", descanso:"en descanso", no_interesada:"no le interesa",
+  numero_malo:"número malo", tiene_consultora:"ya tiene consultora"
+};
+
+function abrirColor(c){
+  const caja = $("#color-detalle");
+  document.querySelectorAll("#tira [data-color]").forEach(t=>t.classList.toggle("abierto", t.dataset.color===c));
+  if (colorAbierto === c){
+    colorAbierto = null; caja.innerHTML = "";
+    document.querySelectorAll("#tira [data-color]").forEach(t=>t.classList.remove("abierto"));
+    return;
+  }
+  colorAbierto = c;
+  const hex = HEX[c] || "#2b2535";
+  const nom = NOM[c] || "Sin contactar";
+  const suyas = todosContactos.filter(p =>
+      c === "gris"  ? (p.baja || p.color === "gris")
+    : c === "nuevo" ? (!p.color && !p.baja)
+    : (p.color === c && !p.baja));
+
+  const hoy = new Date().toISOString().slice(0,10);
+  caja.innerHTML = `<div class="quienes">
+      <button class="cerrar" data-cerrar="1">cerrar ✕</button>
+      <h4><i style="--c:${hex}"></i>${esc(nom)} · ${suyas.length}</h4>
+      ${suyas.map(p=>`<div class="p" data-ir="${p.id}">
+          <b>${esc(p.nombre)}</b>
+          <span>${esc(ETAPAS[p.etapa] || p.etapa || "")}${
+            p.proxima_fecha ? (p.proxima_fecha <= hoy ? " · toca hoy" : " · vuelve el "+p.proxima_fecha.slice(8,10)+"/"+p.proxima_fecha.slice(5,7)) : ""
+          }</span></div>`).join("") || `<div class="p"><span>Ninguna en este color.</span></div>`}
+    </div>`;
+
+  caja.querySelector("[data-cerrar]").onclick = (e) => { e.stopPropagation(); abrirColor(c); };
+  caja.querySelectorAll("[data-ir]").forEach(f=>{
+    f.onclick = () => {
+      const id = f.dataset.ir;
+      if (!gente.find(x=>x.id===id)){
+        alert("Esa persona no tiene acción pendiente hoy, así que no está en la lista de abajo.");
+        return;
+      }
+      vista = "todo"; colorAbierto = null; caja.innerHTML = "";
+      document.querySelectorAll("#tira [data-color]").forEach(t=>t.classList.remove("abierto"));
+      document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on", x.dataset.vista==="todo"));
+      pintarLista();
+      const fila = document.querySelector(`.fila[data-id="${id}"]`);
+      if (fila){ fila.click(); fila.scrollIntoView({block:"center", behavior:"smooth"}); }
+    };
+  });
 }
 
 function pintarLista(){
@@ -545,6 +617,8 @@ document.addEventListener("click", e => {
   const t = e.target.closest("[data-vista]");
   if (t){
     vista = t.dataset.vista; abierta = null;
+    colorAbierto = null; $("#color-detalle").innerHTML = "";
+    document.querySelectorAll("#tira [data-color]").forEach(k=>k.classList.remove("abierto"));
     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on", x.dataset.vista===vista));
     pintarLista();
   }
