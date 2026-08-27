@@ -142,6 +142,23 @@ body{margin:0;background:var(--bg);color:var(--txt);
   font-size:13px;white-space:pre-wrap;margin-bottom:9px;line-height:1.5}
 .rapidas{margin-top:22px}
 .rapidas h4{font-size:12px;color:var(--tenue);text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:21px;line-height:1.15}
+.kpi span{font-size:10.5px;color:var(--tenue);display:block;margin-top:2px}
+.kpi.g b{color:#51CF66} .kpi.r b{color:#FF922B} .kpi.a b{color:#22D3D3} .kpi.m b{color:#B197FC}
+.veredicto{background:#1b2a1f;border-left:3px solid #51CF66;border-radius:8px;padding:11px 13px;
+  font-size:13px;margin-bottom:18px;line-height:1.5}
+.veredicto.mal{background:#2e1519;border-left-color:#ff6b6b;color:#ffb3b3}
+.ref{background:var(--panel);border:1px solid var(--linea);border-radius:12px;padding:13px;margin-bottom:9px}
+.ref .cab{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ref .cab b{font-size:15px}
+.ref .plata{font-size:13px;font-weight:700;white-space:nowrap}
+.ref .lin{font-size:12px;color:var(--tenue);margin:6px 0}
+.ref .si{color:#51CF66} .ref .no{color:#FF922B}
+.mini{background:none;border:1px solid var(--linea);color:var(--tenue);border-radius:8px;
+  padding:8px 11px;font-size:12.5px;cursor:pointer;margin:5px 5px 0 0}
+.mini.on{border-color:#51CF66;color:#51CF66}
 .chip{display:inline-block;background:var(--panel);border:1px solid var(--linea);color:var(--txt);
   border-radius:20px;padding:7px 13px;font-size:13px;margin:0 5px 6px 0;cursor:pointer}
 .tope a{color:#B197FC;cursor:pointer}
@@ -163,6 +180,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
   <div class="marca"><span class="logo">WLGM</span><span class="promesa">Trabaja menos, crece más</span></div>
   <div class="quien"><span id="soy"></span>
     <span style="display:flex;gap:7px">
+      <button class="mas" id="btn-ryg" style="background:#241d31;color:#51CF66">💰 Refiere y Gana</button>
       <button class="mas" id="btn-regalos" style="background:#241d31;color:#B197FC">🎁 Enlaces</button>
       <button class="mas" id="btn-carpeta">+ Referidos</button>
       <button class="salir" id="btn-salir">Salir</button>
@@ -177,6 +195,13 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
+</div>
+
+<div id="pantalla-ryg" class="wrap" hidden>
+  <button class="volver" id="btn-volver3">← Volver a mi día</button>
+  <div class="marca"><span class="logo" style="font-size:22px">Refiere y Gana</span></div>
+  <div id="ryg-resumen"></div>
+  <div id="ryg-lista"></div>
 </div>
 
 <div id="pantalla-regalos" class="wrap" hidden>
@@ -303,7 +328,8 @@ async function entrar(nuevo){
 function salir(){
   sesion = null; localStorage.removeItem("wlgm_sesion");
   $("#pantalla-app").hidden = true; $("#pantalla-carpeta").hidden = true;
-  $("#pantalla-regalos").hidden = true; $("#pantalla-login").hidden = false;
+  $("#pantalla-regalos").hidden = true; $("#pantalla-ryg").hidden = true;
+  $("#pantalla-login").hidden = false;
 }
 
 /* ── datos ── */
@@ -641,6 +667,129 @@ async function abrirRegalos(){
 $("#btn-regalos").onclick  = abrirRegalos;
 $("#clienta").addEventListener("input", pintarRegalo);
 $("#btn-volver2").onclick  = () => { $("#pantalla-regalos").hidden = true; $("#pantalla-app").hidden = false; };
+
+
+/* ── REFIERE Y GANA · el panel ── */
+const $$ = (n) => "$" + Number(n||0).toLocaleString("en-US",{maximumFractionDigits:0});
+
+// El mensaje de Angel: no es un recordatorio, es plata. Dice quién sí y quién falta.
+function msjRefiereYGana(r){
+  const n  = String(r.referidora||"").split(" ")[0];
+  const si = r.si_escribieron || [], no = r.no_escribieron || [];
+  let t = `💕 ¡Hola, ${n}! ¿Cómo estás? `;
+  if (si.length) t += `Quería contarte que ya me contactaron tus amigas ${listar(si,4)}. ✨ `;
+  if (no.length) t += `${si.length?"Pero ":"Fíjate que "}${listar(no,4)} todavía no me ${no.length>1?"han escrito":"ha escrito"}. `
+                    + `Si las ves, recuérdales que su Sesión de Belleza de regalo sigue en pie. 😊 `;
+  if (Number(r.ganado) > 0) t += `\n\nY recuerda que ya llevas acumulados ${$$(r.ganado)} en tu programa Refiere y Gana. 🎁 `;
+  t += `${no.length?"Ganas $10 más por cada una que reciba su sesión.":"Gracias por seguir recomendándome. 💕"}`;
+  return t;
+}
+function listar(a, tope){
+  tope = tope || 99;
+  if (!a || !a.length) return "";
+  if (a.length > tope){
+    const otras = a.length - tope;
+    return a.slice(0,tope).join(", ") + " y otras " + otras;
+  }
+  if (a.length === 1) return a[0];
+  return a.slice(0,-1).join(", ") + " y " + a[a.length-1];
+}
+
+async function abrirRYG(){
+  ["#pantalla-app","#pantalla-carpeta","#pantalla-regalos"].forEach(x=>$(x).hidden=true);
+  $("#pantalla-ryg").hidden = false;
+  $("#ryg-resumen").innerHTML = '<div class="meta">Sacando cuentas…</div>';
+  $("#ryg-lista").innerHTML = "";
+  try{
+    const [res, lista] = await Promise.all([
+      api("/rest/v1/resumen_refiere_y_gana?select=*"),
+      api("/rest/v1/refiere_y_gana?select=*&order=por_pagar.desc,atendidas.desc,refirio_a.desc"),
+    ]);
+    const r = res[0] || {};
+    const inv = Number(r.ya_pagado||0), vta = Number(r.ventas_generadas||0);
+
+    $("#ryg-resumen").innerHTML = `
+      <div class="kpis">
+        <div class="kpi r"><b>${$$(r.por_pagar)}</b><span>POR PAGAR</span></div>
+        <div class="kpi g"><b>${$$(r.ya_pagado)}</b><span>ya pagado · tu inversión</span></div>
+        <div class="kpi a"><b>${$$(vta)}</b><span>ventas que trajo</span></div>
+        <div class="kpi m"><b>${r.referidos_efectivos||0}</b><span>referidas atendidas</span></div>
+      </div>
+      ${veredicto(inv, vta, r)}`;
+
+    if (!lista.length){
+      $("#ryg-lista").innerHTML = '<div class="nadie">Todavía nadie te ha referido a nadie.<br>'
+        + 'Cuando metas referidos en <b>+ Referidos</b>, aquí ves cuánto va acumulando cada quien.</div>';
+      return;
+    }
+    $("#ryg-lista").innerHTML = lista.map(x=>{
+      const tel = String(x.tel_referidora||"").replace(/\D/g,"");
+      const msj = msjRefiereYGana(x);
+      const wa  = tel ? `https://wa.me/1${tel}?text=${encodeURIComponent(msj)}` : "";
+      const si  = x.si_escribieron||[], no = x.no_escribieron||[];
+      const det = (x.detalle||[]).map(d=>{ try{ return JSON.parse(d); }catch(e){ return null; } }).filter(Boolean);
+      const pend = det.filter(d=>d.conecto && !d.atendida);
+      return `<div class="ref">
+        <div class="cab"><b>${esc(x.referidora)}</b>
+          <span class="plata" style="color:${Number(x.por_pagar)>0?'#FF922B':'#9c93aa'}">
+            ${Number(x.por_pagar)>0 ? "debes "+$$(x.por_pagar) : $$(x.ganado)+" ganados"}</span></div>
+        <div class="lin">refirió a ${x.vivas || x.refirio_a} · <b>${x.atendidas}</b> atendida${x.atendidas==1?"":"s"}
+          ${Number(x.ventas_que_trajo)>0?` · trajo <b>${$$(x.ventas_que_trajo)}</b> en ventas`:""}</div>
+        ${si.length?`<div class="lin si">✓ te escribieron: ${esc(listar(si))}</div>`:""}
+        ${no.length?`<div class="lin no">· faltan por escribir: ${esc(listar(no))}</div>`:""}
+        ${wa?`<a class="wa" href="${esc(wa)}" target="_blank" rel="noopener" style="margin-top:9px">Mandarle su resumen</a>`:""}
+        ${pend.map(d=>`<button class="mini" data-atender="${d.id}" data-nom="${esc(d.nombre)}">✓ Atendí a ${esc(d.nombre.split(" ")[0])}</button>`).join("")}
+        ${Number(x.por_pagar)>0?`<button class="mini on" data-pagar="${x.referidora_id}" data-monto="${x.por_pagar}" data-nom="${esc(x.referidora)}">💵 Ya le pagué ${$$(x.por_pagar)}</button>`:""}
+        <div id="ryg-${x.referidora_id}"></div>
+      </div>`;
+    }).join("");
+
+    $("#ryg-lista").querySelectorAll("[data-atender]").forEach(b=>{
+      b.onclick = async () => {
+        b.disabled = true; b.textContent = "guardando…";
+        try{
+          await api("/rest/v1/rpc/wlgm_anotar", {method:"POST", body:JSON.stringify({
+            p_contacto:b.dataset.atender, p_resultado:"atendida" })});
+          const m = prompt(`¿Cuánto compró ${b.dataset.nom}? (déjalo vacío si no compró)`);
+          if (m && !isNaN(parseFloat(m)))
+            await api("/rest/v1/rpc/wlgm_venta", {method:"POST", body:JSON.stringify({
+              p_contacto:b.dataset.atender, p_monto:parseFloat(m) })});
+          abrirRYG();
+        }catch(e){ b.textContent = "⚠ "+e.message; b.disabled = false; }
+      };
+    });
+    $("#ryg-lista").querySelectorAll("[data-pagar]").forEach(b=>{
+      b.onclick = async () => {
+        const forma = prompt(`¿Cómo le pagaste a ${b.dataset.nom}?\n\nproducto · descuento · efectivo · otro`, "producto");
+        if (!forma) return;
+        b.disabled = true; b.textContent = "guardando…";
+        try{
+          const d = await api("/rest/v1/rpc/wlgm_pagar_premio", {method:"POST", body:JSON.stringify({
+            p_referidora:b.dataset.pagar, p_forma:forma.trim().toLowerCase() })});
+          if (!d.ok) throw new Error(d.mensaje||"No se pudo");
+          abrirRYG();
+        }catch(e){ b.textContent = "⚠ "+e.message; b.disabled = false; }
+      };
+    });
+  }catch(e){ $("#ryg-resumen").innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+}
+
+function veredicto(inv, vta, r){
+  if (!r.referidos_efectivos) return `<div class="veredicto">Todavía no has atendido a ninguna referida.
+      Cuando atiendas la primera, aquí te digo <b>si el programa se paga solo</b>.</div>`;
+  if (inv === 0) return `<div class="veredicto"><b>${r.referidos_efectivos} referida${r.referidos_efectivos==1?"":"s"}
+      atendida${r.referidos_efectivos==1?"":"s"}</b> te ${r.referidos_efectivos==1?"trajo":"trajeron"} <b>${$$(vta)}</b> en ventas,
+      y todavía no has pagado ningún premio. Tienes <b>${$$(r.por_pagar)}</b> pendientes por entregar.</div>`;
+  const x = vta / inv;
+  return `<div class="veredicto ${x < 1 ? "mal" : ""}">
+      Por cada <b>$1</b> que entregaste en premios, el programa te devolvió <b>${$$(x)}</b> en ventas.
+      ${x >= 3 ? "El programa se paga solo con creces. 🔥"
+       : x >= 1 ? "El programa se paga solo."
+                : "Todavía no se paga solo — pero es temprano para juzgarlo."}</div>`;
+}
+
+$("#btn-ryg").onclick     = abrirRYG;
+$("#btn-volver3").onclick = () => { $("#pantalla-ryg").hidden = true; $("#pantalla-app").hidden = false; };
 
 async function arrancar(){
   try{
