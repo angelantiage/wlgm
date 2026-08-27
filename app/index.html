@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#14111a">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+<meta name="referrer" content="no-referrer">
 <title>WLGM · Work Less, Grow More</title>
 <style>
 :root{
@@ -104,6 +106,27 @@ body{margin:0;background:var(--bg);color:var(--txt);
   background:var(--panel);border:1px solid var(--linea);border-radius:20px;padding:4px 9px}
 .lg i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 7px var(--c)}
 .tope{font-size:12px;color:var(--tenue);text-align:center;margin-top:18px}
+
+/* ── la carpeta de la clienta ── */
+.mas{background:linear-gradient(95deg,#FF6B9D,#B197FC);border:0;color:#14111a;
+  font-weight:700;border-radius:9px;padding:6px 13px;font-size:12.5px;cursor:pointer}
+.volver{background:none;border:0;color:#B197FC;font-size:13.5px;cursor:pointer;padding:0;margin-bottom:14px}
+.campo{margin-bottom:14px}
+.campo label{display:block;font-size:12.5px;color:var(--tenue);margin-bottom:5px}
+.campo input{width:100%;background:var(--panel);border:1px solid var(--linea);color:var(--txt);
+  border-radius:10px;padding:12px;font-size:16px}
+.par{display:flex;gap:7px;margin-bottom:7px}
+.par input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--linea);
+  color:var(--txt);border-radius:9px;padding:11px;font-size:16px}
+.par input.tel{flex:0 0 42%}
+.par .x{flex:0 0 auto;background:none;border:1px solid var(--linea);color:var(--tenue);
+  border-radius:9px;width:38px;font-size:16px;cursor:pointer}
+.otra{width:100%;background:none;border:1px dashed var(--linea);color:var(--tenue);
+  border-radius:10px;padding:11px;font-size:13.5px;cursor:pointer;margin:4px 0 16px}
+.guardar{width:100%;background:linear-gradient(95deg,#FF6B9D,#B197FC);border:0;color:#14111a;
+  font-weight:700;border-radius:11px;padding:14px;font-size:15px;cursor:pointer}
+.guardar:disabled{opacity:.45}
+.explica{font-size:12.5px;color:var(--tenue);margin:0 0 18px;line-height:1.5}
 .tope a{color:#B197FC;cursor:pointer}
 </style>
 </head>
@@ -121,7 +144,11 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
 <div id="pantalla-app" class="wrap" hidden>
   <div class="marca"><span class="logo">WLGM</span><span class="promesa">Trabaja menos, crece más</span></div>
-  <div class="quien"><span id="soy"></span><button class="salir" id="btn-salir">Salir</button></div>
+  <div class="quien"><span id="soy"></span>
+    <span style="display:flex;gap:7px">
+      <button class="mas" id="btn-carpeta">+ Referidos</button>
+      <button class="salir" id="btn-salir">Salir</button>
+    </span></div>
 
   <div class="tira" id="tira"></div>
 
@@ -132,6 +159,27 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
+</div>
+
+<div id="pantalla-carpeta" class="wrap" hidden>
+  <button class="volver" id="btn-volver">← Volver a mi día</button>
+  <div class="marca"><span class="logo" style="font-size:22px">Nuevos referidos</span></div>
+  <p class="explica">Abre la carpeta de quien te los dio y méteselos todos de un tirón.
+     Entran solos a tu lista, con sus $10 de Refiere y Gana ya colgados —
+     que se ganan cuando la atiendas, no antes.</p>
+
+  <div class="campo">
+    <label>¿Quién te los dio?</label>
+    <input id="referidora" list="mis-contactos" placeholder="Nombre de la clienta" autocomplete="off">
+    <datalist id="mis-contactos"></datalist>
+  </div>
+
+  <label style="display:block;font-size:12.5px;color:var(--tenue);margin-bottom:6px">
+    Sus referidas — nombre y teléfono</label>
+  <div id="filas"></div>
+  <button class="otra" id="btn-otra">+ otra más</button>
+  <button class="guardar" id="btn-guardar">Guardar</button>
+  <div id="carpeta-msg"></div>
 </div>
 
 <script>
@@ -211,7 +259,8 @@ async function entrar(nuevo){
 
 function salir(){
   sesion = null; localStorage.removeItem("wlgm_sesion");
-  $("#pantalla-app").hidden = true; $("#pantalla-login").hidden = false;
+  $("#pantalla-app").hidden = true; $("#pantalla-carpeta").hidden = true;
+  $("#pantalla-login").hidden = false;
 }
 
 /* ── datos ── */
@@ -362,6 +411,86 @@ $("#btn-salir").onclick    = salir;
 $("#clave").addEventListener("keydown", e => { if (e.key==="Enter") entrar(false); });
 
 /* ── arranque ── */
+
+/* ── la carpeta de la clienta ── */
+let misContactos = [];
+
+function filaNueva(){
+  const d = document.createElement("div");
+  d.className = "par";
+  d.innerHTML = '<input class="nom-ref" placeholder="Nombre" autocomplete="off">'
+              + '<input class="tel" type="tel" inputmode="numeric" placeholder="Teléfono" autocomplete="off">'
+              + '<button class="x" title="Quitar">×</button>';
+  d.querySelector(".x").onclick = () => {
+    d.remove();
+    if (!document.querySelectorAll("#filas .par").length) filaNueva();
+  };
+  document.getElementById("filas").appendChild(d);
+  return d;
+}
+
+async function abrirCarpeta(){
+  $("#pantalla-app").hidden = true;
+  $("#pantalla-carpeta").hidden = false;
+  $("#carpeta-msg").innerHTML = "";
+  $("#referidora").value = "";
+  $("#filas").innerHTML = "";
+  for (let i=0;i<5;i++) filaNueva();
+  try{
+    misContactos = await api("/rest/v1/contactos?select=id,nombre&baja=eq.false&order=nombre.asc");
+    $("#mis-contactos").innerHTML = misContactos
+      .map(c=>`<option value="${esc(c.nombre)}">`).join("");
+  }catch(e){ /* si falla el listado, igual se puede escribir el nombre a mano */ }
+}
+
+function cerrarCarpeta(){
+  $("#pantalla-carpeta").hidden = true;
+  $("#pantalla-app").hidden = false;
+}
+
+async function guardarCarpeta(){
+  const msg = $("#carpeta-msg"), btn = $("#btn-guardar");
+  const quien = $("#referidora").value.trim();
+  const gente = [...document.querySelectorAll("#filas .par")].map(f=>({
+      nombre:   f.querySelector(".nom-ref").value.trim(),
+      telefono: f.querySelector(".tel").value.trim()
+  })).filter(x => x.nombre || x.telefono);
+
+  if (!gente.length){ msg.innerHTML = '<div class="error">No has puesto a nadie todavía.</div>'; return; }
+  if (!quien){ msg.innerHTML = '<div class="error">Falta quién te los dio.</div>'; return; }
+
+  const ficha = misContactos.find(c => c.nombre.toLowerCase() === quien.toLowerCase());
+  btn.disabled = true; msg.innerHTML = '<div class="meta">Guardando…</div>';
+  try{
+    const d = await api("/rest/v1/rpc/wlgm_agregar_referidos", {method:"POST", body:JSON.stringify({
+      p_gente: gente,
+      p_referidora_id: ficha ? ficha.id : null,
+      p_referidora_nombre: ficha ? null : quien })});
+
+    let h = "";
+    if (d.cuantas) h += `<div class="aviso"><b>Entraron ${d.cuantas}</b> de parte de ${esc(d.referidora||quien)}: `
+                      + esc((d.entraron||[]).join(", ")) + `.<br>Ya están en tu lista con su mensaje listo.</div>`;
+    if (d.referidora_creada) h += `<div class="aviso">Le creé ficha a <b>${esc(d.referidora)}</b>, `
+                      + `que no la tenías. Ahora sí puedes verle cuánto acumula.</div>`;
+    if ((d.repetidas||[]).length) h += `<div class="error">Ya las tenías, no las repetí: `
+                      + esc(d.repetidas.join(", ")) + `</div>`;
+    if ((d.malas||[]).length) h += `<div class="error">Revisa el teléfono de: `
+                      + esc(d.malas.join(", ")) + `</div>`;
+    msg.innerHTML = h;
+
+    if (d.cuantas){
+      $("#filas").innerHTML = ""; for (let i=0;i<5;i++) filaNueva();
+      await cargar(); pintarTira(); pintarLista();
+    }
+  }catch(e){ msg.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+  btn.disabled = false;
+}
+
+$("#btn-carpeta").onclick = abrirCarpeta;
+$("#btn-volver").onclick  = cerrarCarpeta;
+$("#btn-otra").onclick    = () => filaNueva().querySelector(".nom-ref").focus();
+$("#btn-guardar").onclick = guardarCarpeta;
+
 async function arrancar(){
   try{
     await cargar();
