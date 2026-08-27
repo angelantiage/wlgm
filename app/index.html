@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14111a">
+<title>WLGM · Work Less, Grow More</title>
+<style>
+:root{
+  --bg:#14111a; --panel:#1c1824; --linea:#2b2535; --txt:#efeaf3; --tenue:#9c93aa;
+  --amarillo:#FFD43B; --azul:#4DABF7; --rosa:#FF6B9D; --verde:#51CF66; --naranja:#FF922B;
+  --morado:#B197FC; --turquesa:#22D3D3; --cafe:#C99A6B; --dorado:#F5C518; --gris:#6B7280;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  padding:0 0 env(safe-area-inset-bottom)}
+.wrap{max-width:620px;margin:0 auto;padding:18px 16px 60px}
+
+/* ── marca ── */
+.marca{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+.logo{font-size:30px;font-weight:800;letter-spacing:.06em;
+  background:linear-gradient(95deg,#FF6B9D,#B197FC,#4DABF7);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.promesa{color:var(--tenue);font-size:13.5px}
+.quien{color:var(--tenue);font-size:12.5px;margin:2px 0 16px;display:flex;
+  justify-content:space-between;align-items:center;gap:10px}
+.salir{color:var(--tenue);background:none;border:1px solid var(--linea);border-radius:8px;
+  padding:4px 10px;font-size:12px;cursor:pointer}
+
+/* ── tira de resumen: cómo va TODA la lista ── */
+.tira{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+.tira::-webkit-scrollbar{display:none}
+.t{flex:0 0 auto;background:var(--panel);border:1px solid var(--linea);border-radius:12px;
+  padding:8px 11px;text-align:center;min-width:64px}
+.t i{display:block;width:100%;height:5px;border-radius:3px;background:var(--c);
+  box-shadow:0 0 9px var(--c);margin-bottom:6px}
+.t b{display:block;font-size:17px;line-height:1.1}
+.t span{font-size:10px;color:var(--tenue);display:block;margin-top:1px}
+
+/* ── pestañas ── */
+.tabs{display:flex;gap:8px;margin:6px 0 14px}
+.tab{flex:1;background:var(--panel);border:1px solid var(--linea);color:var(--tenue);
+  border-radius:10px;padding:9px;font-size:13.5px;cursor:pointer}
+.tab.on{color:var(--txt);border-color:#4b3f63;background:#241d31}
+
+/* ── lista maestra ── */
+.grupo{font-size:12px;color:var(--tenue);text-transform:uppercase;letter-spacing:.06em;
+  margin:20px 0 8px;padding-left:2px}
+.fila{display:flex;align-items:center;gap:11px;background:var(--panel);
+  border:1px solid var(--linea);border-radius:12px;padding:11px 13px;margin-bottom:7px;
+  cursor:pointer;transition:border-color .15s}
+.fila:active{border-color:#5a4a76}
+.fila.abierta{border-color:#5a4a76;border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
+.cajas{display:flex;gap:3px;flex:0 0 auto}
+.cj{width:9px;height:15px;border-radius:2.5px;background:var(--c);box-shadow:0 0 7px var(--c)}
+.cj.v{background:#2b2535;box-shadow:none}
+.nom{flex:1;min-width:0}
+.nom b{display:block;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.nom span{display:block;font-size:11.5px;color:var(--tenue);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.hoy{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#FF6B9D;
+  box-shadow:0 0 8px #FF6B9D}
+
+/* ── detalle ── */
+.det{background:#191521;border:1px solid #5a4a76;border-top:0;
+  border-radius:0 0 12px 12px;padding:14px;margin-bottom:9px}
+.tit{font-size:13px;color:var(--tenue);margin-bottom:3px}
+.marca-guion{font-size:11px;padding:2px 7px;border-radius:20px;margin-left:6px;white-space:nowrap}
+.ok{background:#123a24;color:#51CF66}
+.adap{background:#452a10;color:#FF922B}
+.meta{font-size:12.5px;color:var(--tenue);margin:8px 0}
+.msj{background:#120f18;border:1px solid var(--linea);border-radius:10px;padding:12px;
+  font-size:14px;white-space:pre-wrap;margin:10px 0}
+.wa{display:block;text-align:center;background:#1f8f4d;color:#fff;text-decoration:none;
+  padding:12px;border-radius:10px;font-weight:600;margin-bottom:4px}
+.fuente{font-size:10.5px;color:#6e6480;display:block;margin-top:8px}
+.bots{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.b{flex:1 1 auto;background:transparent;border:1.5px solid var(--c);color:var(--c);
+  border-radius:9px;padding:10px 12px;font-size:13.5px;font-weight:600;cursor:pointer}
+.b:active{background:var(--c);color:#14111a}
+.b:disabled{opacity:.4}
+.cuando{display:none;gap:7px;margin-top:9px}
+.cuando.on{display:flex}
+.cuando input,.cuando select{background:#120f18;border:1px solid var(--linea);color:var(--txt);
+  border-radius:8px;padding:9px;font-size:13.5px;flex:1;min-width:0}
+.aviso{background:#1b2a1f;border-left:3px solid #51CF66;padding:9px 11px;border-radius:6px;
+  font-size:13px;margin-top:9px}
+.error{background:#2e1519;border-left:3px solid #ff6b6b;padding:9px 11px;border-radius:6px;
+  font-size:13px;margin-top:9px;color:#ffb3b3}
+
+/* ── entrar ── */
+.login{max-width:340px;margin:14vh auto;padding:0 18px}
+.login input{width:100%;background:var(--panel);border:1px solid var(--linea);color:var(--txt);
+  border-radius:10px;padding:13px;font-size:16px;margin-bottom:9px}
+.login button{width:100%;background:linear-gradient(95deg,#FF6B9D,#B197FC);border:0;color:#14111a;
+  font-weight:700;border-radius:10px;padding:13px;font-size:15px;cursor:pointer}
+.alt{text-align:center;margin-top:14px;font-size:13px;color:var(--tenue)}
+.alt a{color:#B197FC;cursor:pointer;text-decoration:underline}
+.vacio{text-align:center;color:var(--tenue);padding:40px 20px;font-size:14px}
+.leyenda{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 4px}
+.lg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--tenue);
+  background:var(--panel);border:1px solid var(--linea);border-radius:20px;padding:4px 9px}
+.lg i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 7px var(--c)}
+.tope{font-size:12px;color:var(--tenue);text-align:center;margin-top:18px}
+.tope a{color:#B197FC;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="pantalla-login" class="login" hidden>
+  <div class="marca" style="justify-content:center"><span class="logo">WLGM</span></div>
+  <p class="promesa" style="text-align:center;margin:0 0 22px">Trabaja menos, crece más</p>
+  <input id="email" type="email" placeholder="Tu correo" autocomplete="email">
+  <input id="clave" type="password" placeholder="Tu contraseña" autocomplete="current-password">
+  <button id="btn-entrar">Entrar</button>
+  <p class="alt"><a id="link-registro">Es mi primera vez — crear mi acceso</a></p>
+  <div id="login-msg"></div>
+</div>
+
+<div id="pantalla-app" class="wrap" hidden>
+  <div class="marca"><span class="logo">WLGM</span><span class="promesa">Trabaja menos, crece más</span></div>
+  <div class="quien"><span id="soy"></span><button class="salir" id="btn-salir">Salir</button></div>
+
+  <div class="tira" id="tira"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-vista="hoy">Mi día</button>
+    <button class="tab"    data-vista="todo">Toda mi lista</button>
+  </div>
+
+  <div id="lista"></div>
+  <div class="leyenda" id="leyenda"></div>
+</div>
+
+<script>
+const URL_BASE = "https://eacmntypjwsncjlduhro.supabase.co";
+const LLAVE    = "sb_publishable_fuAY6y-PxjNrzr1iLU25ZA_vGM1F9T4";
+const TOPE_DIA = 15;   // el tope que protege el número de WhatsApp
+const CAJAS    = 6;    // sus 6 cajitas: 6 intentos en 61 días
+
+// Los MISMOS colores de Angel, con más luz para fondo oscuro.
+// El hex original vive en la tabla `colores`; esto es solo cómo se pintan.
+const COLORES = [
+  ["amarillo","#FFD43B","No contestó"],   ["azul","#4DABF7","Respuesta no concreta"],
+  ["rosa","#FF6B9D","Se agendó"],         ["verde","#51CF66","Le interesa el negocio"],
+  ["naranja","#FF922B","No está interesada"], ["morado","#B197FC","Atendida"],
+  ["turquesa","#22D3D3","Compró"],        ["cafe","#C99A6B","Quedó para después"],
+  ["dorado","#F5C518","Se registró"],     ["gris","#6B7280","Fuera del círculo"],
+];
+const HEX = Object.fromEntries(COLORES.map(c=>[c[0],c[1]]));
+const NOM = Object.fromEntries(COLORES.map(c=>[c[0],c[2]]));
+
+// Qué se le puede ofrecer a alguien según DÓNDE va. No se ofrece lo que no tiene sentido.
+const BOTONES = {
+  "":         [["no_contesto","No contestó","amarillo"],["contesto","Contestó","azul"],
+               ["agendo","Agendó","rosa"],["baja","No le interesa","naranja"]],
+  "amarillo": [["no_contesto","Otra vez no","amarillo"],["contesto","Contestó","azul"],
+               ["agendo","Agendó","rosa"],["baja","No le interesa","naranja"],
+               ["fuera","Número malo","gris"]],
+  "azul":     [["agendo","Agendó","rosa"],["lo_piensa","Sigue pensando","azul"],
+               ["no_contesto","No contestó","amarillo"],["baja","No le interesa","naranja"]],
+  "rosa":     [["atendida","La atendí","morado"],["no_contesto","No confirmó","amarillo"],
+               ["agendo","Re-agendó","rosa"],["baja","Canceló","naranja"]],
+  "morado":   [["compro","Compró","turquesa"],["no_compro","Para después","cafe"],
+               ["negocio","Le interesa el negocio","verde"]],
+  "turquesa": [["negocio","Le interesa el negocio","verde"],["no_contesto","No contestó","amarillo"]],
+  "cafe":     [["compro","Compró","turquesa"],["no_contesto","No contestó","amarillo"],
+               ["baja","Ya no quiere","naranja"]],
+  "verde":    [["registro","Se registró","dorado"],["lo_piensa","Lo piensa","azul"],
+               ["baja","No es para ella","naranja"]],
+  "gris":     [["contesto","Contestó","azul"],["agendo","Agendó","rosa"]],
+  "dorado":   [["lo_piensa","Seguimiento","azul"]],
+};
+
+let sesion = null, gente = [], resumen = [], vista = "hoy", abierta = null;
+
+/* ── conexión ── */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+async function api(ruta, opts={}){
+  const h = {"apikey":LLAVE,"Content-Type":"application/json", ...(opts.headers||{})};
+  if (sesion) h["Authorization"] = "Bearer " + sesion.access_token;
+  const r = await fetch(URL_BASE + ruta, {...opts, headers:h});
+  const txt = await r.text();
+  const dat = txt ? JSON.parse(txt) : null;
+  if (!r.ok) throw new Error(dat?.message || dat?.error_description || dat?.msg || "Algo falló");
+  return dat;
+}
+
+/* ── entrar ── */
+async function entrar(nuevo){
+  const email = $("#email").value.trim(), password = $("#clave").value;
+  const msg = $("#login-msg");
+  if (!email || !password) { msg.innerHTML = '<div class="error">Falta el correo o la contraseña.</div>'; return; }
+  try{
+    const ruta = nuevo ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+    const d = await api(ruta, {method:"POST", body:JSON.stringify({email,password})});
+    if (!d.access_token){
+      msg.innerHTML = '<div class="aviso">Cuenta creada. Revisa tu correo para confirmarla y vuelve a entrar.</div>';
+      return;
+    }
+    sesion = d;
+    localStorage.setItem("wlgm_sesion", JSON.stringify(d));
+    arrancar();
+  }catch(e){ msg.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+}
+
+function salir(){
+  sesion = null; localStorage.removeItem("wlgm_sesion");
+  $("#pantalla-app").hidden = true; $("#pantalla-login").hidden = false;
+}
+
+/* ── datos ── */
+async function cargar(){
+  const [cola, todos, yo] = await Promise.all([
+    api("/rest/v1/mi_dia?select=*&order=orden.asc,proxima_fecha.asc"),
+    api("/rest/v1/contactos?select=color,baja"),
+    api("/rest/v1/consultoras?select=nombre,clave"),
+  ]);
+  gente = cola;
+  const cuenta = {};
+  todos.forEach(c=>{ const k = c.baja ? "gris" : (c.color || "nuevo"); cuenta[k]=(cuenta[k]||0)+1; });
+  resumen = cuenta;
+  $("#soy").textContent = yo[0] ? yo[0].nombre : "";
+}
+
+/* ── pintar ── */
+function cajitas(p){
+  const hechas = Array(Math.min(p.intentos||0, CAJAS)).fill("amarillo");
+  if (p.color && p.color !== "amarillo"){
+    if (hechas.length < CAJAS) hechas.push(p.color); else hechas[hechas.length-1] = p.color;
+  }
+  let h = "";
+  for (let i=0;i<CAJAS;i++)
+    h += hechas[i] ? `<i class="cj" style="--c:${HEX[hechas[i]]}" title="${esc(NOM[hechas[i]])}"></i>`
+                   : `<i class="cj v"></i>`;
+  return h;
+}
+
+function pintarTira(){
+  let h = "";
+  for (const [c,hex,nom] of COLORES){
+    const n = resumen[c]||0;
+    if (n) h += `<div class="t"><i style="--c:${hex}"></i><b>${n}</b><span>${esc(nom)}</span></div>`;
+  }
+  if (resumen["nuevo"]) h += `<div class="t"><i style="--c:#2b2535;box-shadow:none"></i><b>${resumen["nuevo"]}</b><span>Sin contactar</span></div>`;
+  $("#tira").innerHTML = h;
+  $("#leyenda").innerHTML = COLORES.map(([c,hex,nom])=>
+    `<span class="lg"><i style="--c:${hex}"></i>${esc(nom)}</span>`).join("");
+}
+
+function pintarLista(){
+  const filtrada = vista==="hoy" ? gente.filter(p=>p.toca_hoy) : gente;
+  const mostradas = vista==="hoy" ? filtrada.slice(0,TOPE_DIA) : filtrada;
+  if (!mostradas.length){
+    $("#lista").innerHTML = '<div class="vacio">Por hoy no hay nadie esperándote.<br>Eso también es una buena señal.</div>';
+    return;
+  }
+  let h = "", grupo = null;
+  for (const p of mostradas){
+    if (p.etiqueta !== grupo){ grupo = p.etiqueta; h += `<div class="grupo">${esc(grupo)}</div>`; }
+    const sub = [p.referida_por ? "de parte de "+p.referida_por : "",
+                 p.tipo_piel ? "piel "+p.tipo_piel : "",
+                 p.edad ? p.edad+" años" : ""].filter(Boolean).join(" · ");
+    h += `<div class="fila" data-id="${p.id}">
+            <span class="cajas">${cajitas(p)}</span>
+            <span class="nom"><b>${esc(p.nombre)}</b><span>${esc(sub||p.titulo)}</span></span>
+            ${p.toca_hoy?'<i class="hoy"></i>':''}
+          </div><div id="d-${p.id}"></div>`;
+  }
+  if (vista==="hoy" && filtrada.length > TOPE_DIA)
+    h += `<p class="tope">Te quedan ${filtrada.length-TOPE_DIA} más para hoy.
+          El tope de ${TOPE_DIA} protege tu número de WhatsApp.
+          <a data-vista="todo">Ver toda mi lista</a></p>`;
+  $("#lista").innerHTML = h;
+}
+
+function pintarDetalle(p){
+  const caja = document.getElementById("d-"+p.id);
+  const tel = String(p.telefono||"").replace(/\D/g,"");
+  const wa = "https://wa.me/1"+tel+"?text="+encodeURIComponent(p.mensaje||"");
+  const meta = [p.referida_por?"referida por "+p.referida_por:"",
+                p.tipo_piel?"piel "+p.tipo_piel:"", p.edad?p.edad+" años":"",
+                p.preocupacion||"", p.llamadas_anotadas?p.llamadas_anotadas+" llamadas anotadas":"",
+                p.consent_whatsapp?"✓ dio permiso":""].filter(Boolean).join(" · ");
+  const bots = (BOTONES[p.color||""]||BOTONES[""]).map(([r,t,c])=>
+    `<button class="b" style="--c:${HEX[c]}" data-r="${r}">${esc(t)}</button>`).join("");
+  caja.innerHTML = `<div class="det">
+      <div class="tit">${esc(p.titulo)}
+        <span class="marca-guion ${p.textual?'ok':'adap'}">${p.textual?'tus palabras':'adaptado — revísalo'}</span></div>
+      ${meta?`<div class="meta">${esc(meta)}</div>`:""}
+      <div class="msj">${esc(p.mensaje)}</div>
+      <a class="wa" href="${esc(wa)}" target="_blank" rel="noopener">Abrir WhatsApp</a>
+      <span class="fuente">${esc(p.fuente)}</span>
+      <div class="bots">${bots}</div>
+      <div class="cuando">
+        <input type="datetime-local" id="f-${p.id}">
+        <select id="m-${p.id}"><option value="presencial">En persona</option><option value="virtual">Virtual</option></select>
+        <button class="b" style="--c:#FF6B9D;flex:0 0 auto" data-confirmar="1">Guardar</button>
+      </div>
+      <div id="r-${p.id}"></div>
+    </div>`;
+
+  caja.querySelectorAll(".b[data-r]").forEach(b=>{
+    b.onclick = () => {
+      if (b.dataset.r === "agendo"){ caja.querySelector(".cuando").classList.add("on"); return; }
+      anotar(p, b.dataset.r, caja);
+    };
+  });
+  const g = caja.querySelector("[data-confirmar]");
+  if (g) g.onclick = () => {
+    const f = document.getElementById("f-"+p.id).value;
+    if (!f){ document.getElementById("r-"+p.id).innerHTML = '<div class="error">Falta el día y la hora.</div>'; return; }
+    anotar(p, "agendo", caja, new Date(f).toISOString(), document.getElementById("m-"+p.id).value);
+  };
+}
+
+async function anotar(p, resultado, caja, cita=null, modalidad="presencial"){
+  const zona = document.getElementById("r-"+p.id);
+  caja.querySelectorAll("button").forEach(b=>b.disabled = true);
+  zona.innerHTML = '<div class="meta">Guardando…</div>';
+  try{
+    const d = await api("/rest/v1/rpc/wlgm_anotar", {method:"POST", body:JSON.stringify({
+      p_contacto:p.id, p_resultado:resultado, p_nota:null, p_cita:cita, p_modalidad:modalidad })});
+    const avisos = (d.avisos||[]).map(a=>`<div class="aviso">${esc(a)}</div>`).join("");
+    zona.innerHTML = avisos + `<div class="meta">Queda ${esc(NOM[d.color]||d.etapa)}` +
+      (d.proxima_fecha?` · vuelve el ${esc(d.proxima_fecha)}`:" · sin próxima acción") + `</div>`;
+    await cargar(); pintarTira();
+    setTimeout(()=>{ abierta = null; pintarLista(); }, 2200);
+  }catch(e){
+    zona.innerHTML = '<div class="error">'+esc(e.message)+'</div>';
+    caja.querySelectorAll("button").forEach(b=>b.disabled = false);
+  }
+}
+
+/* ── eventos ── */
+document.addEventListener("click", e => {
+  const fila = e.target.closest(".fila");
+  if (fila){
+    const id = fila.dataset.id;
+    document.querySelectorAll(".fila").forEach(f=>f.classList.remove("abierta"));
+    document.querySelectorAll("[id^='d-']").forEach(d=>d.innerHTML="");
+    if (abierta === id){ abierta = null; return; }
+    abierta = id; fila.classList.add("abierta");
+    pintarDetalle(gente.find(p=>p.id===id));
+    return;
+  }
+  const t = e.target.closest("[data-vista]");
+  if (t){
+    vista = t.dataset.vista; abierta = null;
+    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on", x.dataset.vista===vista));
+    pintarLista();
+  }
+});
+$("#btn-entrar").onclick   = () => entrar(false);
+$("#link-registro").onclick = () => entrar(true);
+$("#btn-salir").onclick    = salir;
+$("#clave").addEventListener("keydown", e => { if (e.key==="Enter") entrar(false); });
+
+/* ── arranque ── */
+async function arrancar(){
+  try{
+    await cargar();
+    $("#pantalla-login").hidden = true; $("#pantalla-app").hidden = false;
+    pintarTira(); pintarLista();
+  }catch(e){
+    salir();
+    $("#login-msg").innerHTML = '<div class="error">'+esc(e.message)+
+      '. Si acabas de crear tu acceso, confirma el correo primero.</div>';
+  }
+}
+(function(){
+  const g = localStorage.getItem("wlgm_sesion");
+  if (g){ sesion = JSON.parse(g); arrancar(); }
+  else { $("#pantalla-login").hidden = false; }
+})();
+</script>
+</body>
+</html>
