@@ -57,6 +57,15 @@ body{margin:0;background:var(--bg);color:var(--txt);
 .mud .cab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
 .mud .cab b{font-size:14.5px}
 .mud .cab span{font-size:11px;color:var(--tenue);white-space:nowrap}
+.difu{background:linear-gradient(95deg,#2a1f33,#1f2536);border:1px solid #5a4a76;
+  border-radius:12px;padding:14px;margin-bottom:16px}
+.difu h4{margin:0 0 4px;font-size:15px}
+.difu p{font-size:12.5px;color:var(--tenue);margin:0 0 10px;line-height:1.5}
+.difu .nums{background:#120f18;border:1px solid var(--linea);border-radius:9px;padding:10px;
+  font-size:11.5px;color:#9c93aa;max-height:110px;overflow-y:auto;margin:9px 0;
+  font-family:ui-monospace,monospace;line-height:1.7;word-break:break-all}
+.paso-n{display:flex;gap:9px;font-size:12.5px;color:var(--tenue);margin-bottom:7px;line-height:1.45}
+.paso-n b{flex:0 0 auto;color:#B197FC}
 .mud .txt{background:#120f18;border:1px solid var(--linea);border-radius:9px;padding:10px;
   font-size:12.5px;white-space:pre-wrap;margin:8px 0;line-height:1.5;max-height:96px;overflow:hidden}
 .quienes .cerrar{background:none;border:0;color:var(--tenue);font-size:12px;cursor:pointer;
@@ -238,7 +247,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
-  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 15:29</p>
+  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 15:41</p>
 </div>
 
 <div id="pantalla-mudanza" class="wrap" hidden>
@@ -247,6 +256,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
   <p class="explica"><b>Estos mensajes los mandas desde tu número de siempre</b>, no desde el nuevo.
      Así ellas lo guardan antes de que el nuevo les escriba — y WhatsApp no lo trata como
      un desconocido. Empieza por las de arriba: son las que te contestan.</p>
+  <div id="mudanza-difusion"></div>
   <div id="mudanza-lista"></div>
 </div>
 
@@ -927,20 +937,82 @@ async function verCampana(){
   }catch(e){ }
 }
 
+
+function textoDifusion(){
+  const wa = bonito(miConsultora.whatsapp);
+  return `💕 ¡Hola! ¿Cómo estás? Gusto en saludarte. ✨\n\n`
+    + `Te cuento que ahora voy a manejar todo lo de mi trabajo desde otro número:\n\n`
+    + `📱 ${wa}\n\n`
+    + `Guárdalo y mándame un mensajito por ahí, para tenerte yo también. 💕`;
+}
+
+function pintarDifusion(gente2){
+  const nums = gente2.map(p => "+1" + String(p.telefono||"").replace(/\D/g,"")).filter(x=>x.length===12);
+  const txt = textoDifusion();
+  $("#mudanza-difusion").innerHTML = `<div class="difu">
+      <h4>📢 Mándaselo a las ${nums.length} de un solo tirón</h4>
+      <p>Con una <b>lista de difusión</b> de WhatsApp le llega a cada una como mensaje
+         personal — no ven a las demás. <b>Hazlo desde tu número de siempre:</b> la difusión
+         solo le llega a quien te tenga agendado, y al nuevo todavía no lo tiene nadie.</p>
+
+      <div class="paso-n"><b>1.</b><span>En WhatsApp: menú <b>⋮</b> → <b>Nueva difusión</b></span></div>
+      <div class="paso-n"><b>2.</b><span>Agrega a tus clientas (WhatsApp permite hasta 256)</span></div>
+      <div class="paso-n"><b>3.</b><span>Pega este mensaje y envía</span></div>
+      <div class="paso-n"><b>4.</b><span>Vuelve aquí y toca <b>“Ya las mandé todas”</b></span></div>
+
+      <div class="txt" style="max-height:none">${esc(txt)}</div>
+      <button class="copiar" data-copiar-txt="1">Copiar el mensaje</button>
+      <button class="copiar" data-vernums="1">Ver los ${nums.length} números</button>
+      <div class="nums" id="lista-nums" hidden>${nums.join("\n")}</div>
+      <button class="copiar" data-copiar-nums="1" hidden id="cn">Copiar los números</button>
+      <button class="guardar" style="margin-top:11px" data-todas="1">✓ Ya las mandé todas</button>
+      <div id="difu-msg"></div>
+    </div>`;
+
+  const q = $("#mudanza-difusion");
+  q.querySelector("[data-copiar-txt]").onclick = (e) => {
+    navigator.clipboard.writeText(txt);
+    e.target.textContent = "✓ copiado"; setTimeout(()=>e.target.textContent="Copiar el mensaje",1600);
+  };
+  q.querySelector("[data-vernums]").onclick = (e) => {
+    const n = $("#lista-nums"), c = $("#cn");
+    n.hidden = !n.hidden; c.hidden = n.hidden;
+    e.target.textContent = n.hidden ? `Ver los ${nums.length} números` : "Ocultar";
+  };
+  q.querySelector("[data-copiar-nums]").onclick = (e) => {
+    navigator.clipboard.writeText(nums.join("\n"));
+    e.target.textContent = "✓ copiados"; setTimeout(()=>e.target.textContent="Copiar los números",1600);
+  };
+  q.querySelector("[data-todas]").onclick = async (e) => {
+    if (!confirm(`¿Marcar las ${gente2.length} como avisadas?\n\nHazlo solo si ya mandaste la difusión.`)) return;
+    e.target.disabled = true; e.target.textContent = "Guardando…";
+    let ok = 0;
+    for (const p of gente2){
+      try{ await api("/rest/v1/rpc/wlgm_avise_del_numero", {method:"POST",
+             body:JSON.stringify({ p_contacto:p.id })}); ok++; }catch(err){}
+    }
+    $("#difu-msg").innerHTML = `<div class="aviso">Listo: ${ok} marcadas como avisadas.</div>`;
+    setTimeout(abrirMudanza, 1500);
+  };
+}
+
 async function abrirMudanza(){
   ["#pantalla-app","#pantalla-carpeta","#pantalla-regalos","#pantalla-ryg"].forEach(x=>$(x).hidden=true);
   $("#pantalla-mudanza").hidden = false;
   const caja = $("#mudanza-lista");
   caja.innerHTML = '<div class="meta">Buscando…</div>';
+  $("#mudanza-difusion").innerHTML = "";
   try{
     const l = await api("/rest/v1/mudanza_de_numero?select=*&aviso_numero_en=is.null"
       + "&order=prioridad.asc,venta_total.desc,nombre.asc&limit=" + TOPE_MUDANZA);
-    const todas = await api("/rest/v1/mudanza_de_numero?select=id&aviso_numero_en=is.null");
+    const todas = await api("/rest/v1/mudanza_de_numero?select=id,telefono,nombre&aviso_numero_en=is.null&order=prioridad.asc");
     if (!l.length){
+      $("#mudanza-difusion").innerHTML = "";
       caja.innerHTML = '<div class="nadie">Ya les avisaste a todas. 🎉<br>'
         + 'Ahora sí puedes empezar a escribirles desde el número nuevo.</div>';
       return;
     }
+    pintarDifusion(todas);
     caja.innerHTML = l.map(p=>{
       const msj = `💕 ¡Hola, ${esc(String(p.nombre).split(" ")[0])}! Soy ${esc(String(p.yo).split(" ")[0])}, `
         + `tu Consultor de Belleza Independiente. ✨\n\nTe escribo desde mi número de siempre para `
@@ -952,7 +1024,7 @@ async function abrirMudanza(){
         <div class="cab"><b>${esc(p.nombre)}</b><span>${esc(p.por_que)}</span></div>
         <div class="txt">${esc(msj)}</div>
         <a class="wa" href="https://wa.me/1${tel}?text=${encodeURIComponent(msj)}"
-           target="_blank" rel="noopener">Mandárselo desde tu número viejo</a>
+           target="_blank" rel="noopener">Mandárselo solo a ella</a>
         <button class="mini on" data-avise="${p.id}" data-nom="${esc(p.nombre)}">✓ Ya le avisé</button>
       </div>`;
     }).join("")
