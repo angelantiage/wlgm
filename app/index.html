@@ -564,8 +564,10 @@ function msjParaReenviar(n, enlace){
   // Escrito por Angel el 2026-08-27. Es de amiga a amiga, no de negocio a cliente.
   // Lo fuerte no es la oferta: es "TE ESCOGÍ A TI".
   const yo = miConsultora.presentacion || miConsultora.nombre || "mi Consultor de Belleza";
-  return `💕 ¡Hola, amiga! Acabo de recibir una Sesión de Belleza donde me limpiaron, `
-    + `nutrieron e hidrataron el rostro, con ${yo}, y la pasé buenísimo. ✨\n\n`
+  // OJO: la consultora NO le toca la piel a nadie. La clienta se la trabaja ELLA,
+  // bajo su guía. Por eso va en primera persona. Corregido por Angel el 2026-08-27.
+  return `💕 ¡Hola, amiga! Acabo de tener una Sesión de Belleza con ${yo}, donde tuve la `
+    + `oportunidad de limpiar, nutrir e hidratar la piel de mi rostro, y la pasé buenísimo. ✨\n\n`
     + `Me dio la oportunidad de regalarle esa misma experiencia a una amiga… `
     + `¡y te escogí a ti! 🎁\n\nEs completamente gratis y sin ningún compromiso.\n\n`
     + `Aquí puedes reservar 👉 ${enlace}\n\n`
