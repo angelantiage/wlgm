@@ -183,6 +183,23 @@ body{margin:0;background:var(--bg);color:var(--txt);
 .kpi{position:relative}
 .detkpi{background:#191521;border:1px solid #5a4a76;border-radius:12px;padding:13px;margin-bottom:16px}
 .detkpi h4{margin:0 0 9px;font-size:13px;color:#B197FC}
+.ia{background:#151022;border:1px solid #4b3f63;border-radius:11px;padding:12px;margin-top:11px;display:none}
+.ia.on{display:block}
+.ia h5{margin:0 0 3px;font-size:12.5px;color:#B197FC}
+.ia .q{font-size:11.5px;color:var(--tenue);margin:0 0 9px;line-height:1.45}
+.ia .chat{max-height:300px;overflow-y:auto;margin-bottom:9px}
+.burb{border-radius:11px;padding:9px 11px;margin-bottom:7px;font-size:13.5px;
+  white-space:pre-wrap;line-height:1.45;max-width:88%}
+.burb.ella{background:#241d31;margin-right:auto}
+.burb.ia{background:#12271c;border:1px solid #2c4a37;margin-left:auto}
+.burb b{display:block;font-size:10.5px;color:var(--tenue);margin-bottom:3px;font-weight:600}
+.esc{background:#452a10;border-left:3px solid #FF922B;border-radius:6px;padding:8px 10px;
+  font-size:12px;color:#FFD8A8;margin-bottom:7px}
+.dato{background:#123a24;border-radius:6px;padding:6px 9px;font-size:11.5px;color:#8CE99A;margin-bottom:6px}
+.gasto{font-size:10.5px;color:#5b5270;text-align:right;margin-top:5px}
+.ia .fila-in{display:flex;gap:7px}
+.ia input{flex:1;min-width:0;background:#120f18;border:1px solid var(--linea);color:var(--txt);
+  border-radius:9px;padding:10px;font-size:15px}
 .util{display:flex;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid var(--linea)}
 .util button{flex:1;background:none;border:1px solid var(--linea);color:var(--tenue);
   border-radius:9px;padding:9px;font-size:12.5px;cursor:pointer}
@@ -247,7 +264,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
 
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
-  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 27/08 21:26</p>
+  <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 28/08 10:22</p>
 </div>
 
 <div id="pantalla-mudanza" class="wrap" hidden>
@@ -557,6 +574,57 @@ function pintarLista(){
   $("#lista").innerHTML = h;
 }
 
+
+/* ── probar la IA con una persona, sin mandarle nada a nadie ── */
+const charlas = {};
+
+async function probarIA(p, texto){
+  const chat = document.getElementById("chat-"+p.id);
+  const inp  = document.getElementById("in-"+p.id);
+  charlas[p.id] = charlas[p.id] || [];
+
+  chat.insertAdjacentHTML("beforeend",
+    `<div class="burb ella"><b>${esc(p.nombre.split(" ")[0])} dice</b>${esc(texto)}</div>`);
+  chat.insertAdjacentHTML("beforeend", `<div class="burb ia" id="pensando"><b>la IA</b>pensando…</div>`);
+  chat.scrollTop = chat.scrollHeight;
+  inp.value = ""; inp.disabled = true;
+
+  try{
+    const r = await fetch(URL_BASE + "/functions/v1/conversar", {
+      method: "POST",
+      headers: { "apikey": LLAVE, "Authorization": "Bearer " + sesion.access_token,
+                 "Content-Type": "application/json" },
+      body: JSON.stringify({ contacto_id: p.id, mensaje: texto, historial: charlas[p.id] }),
+    });
+    const d = await r.json();
+    document.getElementById("pensando")?.remove();
+    if (!r.ok || d.error) throw new Error(d.error || "No pude");
+
+    charlas[p.id].push({ role: "user", content: texto });
+    charlas[p.id].push({ role: "assistant", content: d.mensaje });
+
+    let extra = "";
+    if (d.escalar) extra += `<div class="esc">⚠️ <b>Te pasa la conversación:</b> ${esc(d.motivo_escalada||"algo que no le toca a la IA")}</div>`;
+    const dd = d.datos || {};
+    const recogido = [dd.tipo_piel && "piel "+dd.tipo_piel, dd.edad && dd.edad+" años",
+                      dd.preocupacion].filter(Boolean);
+    if (recogido.length) extra += `<div class="dato">📝 Le sacó: ${esc(recogido.join(" · "))}</div>`;
+    if (d.propone_cita) extra += `<div class="dato">📅 Propone cita: ${esc(d.propone_cita.fecha_hora)} · ${esc(d.propone_cita.modalidad)} <b>(tú la aceptas)</b></div>`;
+    if (d.color) extra += `<div class="dato">🎨 La deja en ${esc(NOM[d.color]||d.color)}</div>`;
+
+    chat.insertAdjacentHTML("beforeend", extra +
+      `<div class="burb ia"><b>la IA contestaría</b>${esc(d.mensaje)}</div>` +
+      `<div class="gasto">${d.gasto.entrada} entrada · ${d.gasto.salida} salida`
+      + (d.gasto.cache_leido ? ` · ${d.gasto.cache_leido} leídos de caché ✓` : "")
+      + (d.gasto.cache_escrito ? ` · ${d.gasto.cache_escrito} guardados en caché` : "") + `</div>`);
+  }catch(e){
+    document.getElementById("pensando")?.remove();
+    chat.insertAdjacentHTML("beforeend", `<div class="error">${esc(e.message)}</div>`);
+  }
+  inp.disabled = false; inp.focus();
+  chat.scrollTop = chat.scrollHeight;
+}
+
 function pintarDetalle(p){
   const caja = document.getElementById("d-"+p.id);
   const tel = String(p.telefono||"").replace(/\D/g,"");
@@ -582,8 +650,19 @@ function pintarDetalle(p){
       </div>
       <div id="r-${p.id}"></div>
       <div class="util">
-        <button data-editar="${p.id}">✎ Editar sus datos</button>
-        <button data-deshacer="${p.id}">↶ Deshacer lo último</button>
+        <button data-editar="${p.id}">✎ Editar</button>
+        <button data-ia="${p.id}">🤖 Probar la IA</button>
+        <button data-deshacer="${p.id}">↶ Deshacer</button>
+      </div>
+      <div class="ia" id="ia-${p.id}">
+        <h5>🤖 Probar la IA con ${esc(String(p.nombre).split(" ")[0])}</h5>
+        <p class="q">Escribe lo que <b>ella</b> te diría por WhatsApp y mira qué contestaría.
+           Aquí no se manda nada a nadie: es solo para que la afines.</p>
+        <div class="chat" id="chat-${p.id}"></div>
+        <div class="fila-in">
+          <input id="in-${p.id}" placeholder="Lo que ella escribe…">
+          <button class="b" style="--c:#B197FC;flex:0 0 auto" data-enviar="${p.id}">Ver</button>
+        </div>
       </div>
       <div class="editar" id="e-${p.id}">
         <input id="en-${p.id}" placeholder="Nombre" value="${esc(p.nombre||"")}">
@@ -601,6 +680,20 @@ function pintarDetalle(p){
       anotar(p, b.dataset.r, caja);
     };
   });
+  const bIA = caja.querySelector("[data-ia]");
+  if (bIA) bIA.onclick = () => {
+    const panel = caja.querySelector(".ia");
+    panel.classList.toggle("on");
+    if (panel.classList.contains("on")) document.getElementById("in-"+p.id).focus();
+  };
+  const bEnv = caja.querySelector("[data-enviar]");
+  if (bEnv){
+    const inp = document.getElementById("in-"+p.id);
+    const mandar = () => { const t = inp.value.trim(); if (t) probarIA(p, t); };
+    bEnv.onclick = mandar;
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") mandar(); });
+  }
+
   const bEd = caja.querySelector("[data-editar]");
   if (bEd) bEd.onclick = () => caja.querySelector(".editar").classList.toggle("on");
 
