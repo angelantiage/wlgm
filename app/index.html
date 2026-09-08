@@ -225,6 +225,9 @@ body{margin:0;background:var(--bg);color:var(--txt);
 .mini{background:none;border:1px solid var(--linea);color:var(--tenue);border-radius:8px;
   padding:8px 11px;font-size:12.5px;cursor:pointer;margin:5px 5px 0 0}
 .mini.on{border-color:#51CF66;color:#51CF66}
+.mini.des{border-color:#FF922B;color:#FF922B}
+.detkpi .it .des{margin:0;padding:5px 9px;font-size:11.5px;flex:0 0 auto}
+.detkpi .it .fin{display:flex;align-items:center;gap:9px}
 .chip{display:inline-block;background:var(--panel);border:1px solid var(--linea);color:var(--txt);
   border-radius:20px;padding:7px 13px;font-size:13px;margin:0 5px 6px 0;cursor:pointer}
 .tope a{color:#B197FC;cursor:pointer}
@@ -1012,6 +1015,26 @@ function listar(a, tope){
 
 
 /* ── al tocar un número de arriba, se abre de quién habla ── */
+/* ── "me equivoqué, no la atendí" ──
+   Un solo toque revierte los cinco rastros que deja marcarla: la ficha, la cita,
+   los recordatorios, el 2+2+2 y los $10. Lo mismo desde la tarjeta o desde el KPI. */
+async function desatender(boton, id, nombre){
+  if (!confirm(`¿Marcaste a ${nombre} por error?\n\n`
+    + `Vuelve a como estaba: se le quitan los $10 a quien la refirió, `
+    + `se borra el 2+2+2, la cita deja de estar atendida y sus recordatorios vuelven a quedar activos.`)) return;
+  const antes = boton.textContent;
+  boton.disabled = true; boton.textContent = "deshaciendo…";
+  try{
+    const d = await api("/rest/v1/rpc/wlgm_deshacer_atendida", {method:"POST",
+      body:JSON.stringify({ p_contacto:id })});
+    if (!d.ok){ alert(d.mensaje); boton.disabled = false; boton.textContent = antes; return; }
+    const extra = (d.tambien_deshice||[]);
+    alert(`Listo. ${d.nombre} vuelve a estar como estaba.`
+      + (extra.length ? `\n\nTambién quité:\n· ` + extra.join("\n· ") : ""));
+    await cargar(); pintarTira(); abrirRYG();
+  }catch(e){ alert("⚠ "+e.message); boton.disabled = false; boton.textContent = antes; }
+}
+
 let kpiAbierto = null;
 
 async function abrirKPI(cual){
@@ -1040,13 +1063,18 @@ async function abrirKPI(cual){
       const l = await api(`/rest/v1/ryg_referidas?select=*&${q}&order=atendida_en.desc`);
       h = `<h4>${t} · ${l.length}</h4>`
         + (l.length ? l.map(x=>`<div class="it"><b>${esc(x.referida)}</b>
-             <span>${cual==="ventas" ? $$(x.venta_total)+" · " : ""}${cual==="deber" ? $$(x.premio_usd)+" a " : "de "}${esc(String(x.referidora).split(" ")[0])}
-             ${x.atendida_en ? " · "+new Date(x.atendida_en).toLocaleDateString("es") : ""}</span></div>`).join("")
+             <span class="fin"><span>${cual==="ventas" ? $$(x.venta_total)+" · " : ""}${cual==="deber" ? $$(x.premio_usd)+" a " : "de "}${esc(String(x.referidora).split(" ")[0])}
+             ${x.atendida_en ? " · "+new Date(x.atendida_en).toLocaleDateString("es") : ""}</span>
+             ${cual==="atendidas" && !x.pagado ? `<button class="mini des" data-desatender="${x.referida_id}"
+                 data-nom="${esc(x.referida)}" title="deshacer: no la atendí">↶</button>` : ""}</span></div>`).join("")
            : `<div class="it"><span>${cual==="deber" ? "No le debes premio a nadie ahora mismo."
                 : cual==="ventas" ? "Todavía ninguna referida atendida te ha comprado. Anota las ventas al marcarlas."
                 : "Todavía no has atendido a ninguna referida."}</span></div>`);
     }
     caja.innerHTML = `<div class="detkpi">${h}</div>`;
+    caja.querySelectorAll("[data-desatender]").forEach(b=>{
+      b.onclick = () => desatender(b, b.dataset.desatender, b.dataset.nom);
+    });
   }catch(e){ caja.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
 }
 
@@ -1208,6 +1236,7 @@ async function abrirRYG(){
       const si  = x.si_escribieron||[], no = x.no_escribieron||[];
       const det = (x.detalle||[]).map(d=>{ try{ return JSON.parse(d); }catch(e){ return null; } }).filter(Boolean);
       const pend = det.filter(d=>!d.atendida && !d.baja);   // todas las que aún no atendió
+      const yaes = det.filter(d=>d.atendida);               // las que ya marcaste, por si te equivocaste
       return `<div class="ref">
         <div class="cab"><b>${esc(x.referidora)}</b>
           <span class="plata" style="color:${Number(x.por_pagar)>0?'#FF922B':'#9c93aa'}">
@@ -1222,6 +1251,10 @@ async function abrirRYG(){
             data-nom="${esc(d.nombre)}" data-cuenta="${d.cuenta?1:0}"
             title="${d.cuenta?"acredita $10":"histórica: no acredita, te preguntaré"}"
             >✓ ${esc(d.nombre.split(" ")[0])}${d.cuenta?" · $10":" · sin premio"}</button>`).join("")}
+        ${yaes.length?`<div class="lin" style="margin-top:9px">Ya marcadas · si te equivocaste, tócala:</div>`:""}
+        ${yaes.map(d=>`<button class="mini des" data-desatender="${d.id}"
+            data-nom="${esc(d.nombre)}" title="deshacer: no la atendí"
+            >↶ ${esc(d.nombre.split(" ")[0])}</button>`).join("")}
         ${Number(x.por_pagar)>0?`<button class="mini on" data-pagar="${x.referidora_id}" data-monto="${x.por_pagar}" data-nom="${esc(x.referidora)}">💵 Ya le pagué ${$$(x.por_pagar)}</button>`:""}
         <div id="ryg-${x.referidora_id}"></div>
       </div>`;
@@ -1229,17 +1262,16 @@ async function abrirRYG(){
 
     $("#ryg-lista").querySelectorAll("[data-atender]").forEach(b=>{
       b.onclick = async () => {
-        if (b.dataset.cuenta === "0"){
-          if (confirm(`${b.dataset.nom} es de tus referidas viejas y hoy no acredita premio.\n\n`
-            + `¿Le acredito los $10 a quien la refirió, ya que la atendiste hoy?`)){
-            try{ await api("/rest/v1/rpc/wlgm_activar_premio", {method:"POST",
-                   body:JSON.stringify({ p_referida:b.dataset.atender })}); }catch(e){}
-          }
-        }
+        const premio = b.dataset.cuenta === "0"
+          && confirm(`${b.dataset.nom} es de tus referidas viejas y hoy no acredita premio.\n\n`
+                   + `¿Le acredito los $10 a quien la refirió, ya que la atendiste hoy?`);
         b.disabled = true; b.textContent = "guardando…";
         try{
           await api("/rest/v1/rpc/wlgm_anotar", {method:"POST", body:JSON.stringify({
             p_contacto:b.dataset.atender, p_resultado:"atendida" })});
+          // Después de anotarla, para que el premio quede con hora posterior y se pueda deshacer.
+          if (premio) try{ await api("/rest/v1/rpc/wlgm_activar_premio", {method:"POST",
+                 body:JSON.stringify({ p_referida:b.dataset.atender })}); }catch(e){}
           const m = prompt(`¿Cuánto compró ${b.dataset.nom}? (déjalo vacío si no compró)`);
           if (m && !isNaN(parseFloat(m)))
             await api("/rest/v1/rpc/wlgm_venta", {method:"POST", body:JSON.stringify({
@@ -1247,6 +1279,9 @@ async function abrirRYG(){
           abrirRYG();
         }catch(e){ b.textContent = "⚠ "+e.message; b.disabled = false; }
       };
+    });
+    $("#ryg-lista").querySelectorAll("[data-desatender]").forEach(b=>{
+      b.onclick = () => desatender(b, b.dataset.desatender, b.dataset.nom);
     });
     $("#ryg-lista").querySelectorAll("[data-pagar]").forEach(b=>{
       b.onclick = async () => {
