@@ -226,6 +226,23 @@ body{margin:0;background:var(--bg);color:var(--txt);
   padding:8px 11px;font-size:12.5px;cursor:pointer;margin:5px 5px 0 0}
 .mini.on{border-color:#51CF66;color:#51CF66}
 .mini.des{border-color:#FF922B;color:#FF922B}
+.mini.ed{border-color:#B197FC;color:#B197FC}
+.edref{display:none;margin-top:11px;border-top:1px solid var(--linea);padding-top:11px}
+.edref.on{display:block}
+.edref .r{border-bottom:1px solid var(--linea);padding:9px 0}
+.edref .r:last-child{border-bottom:0}
+.edref .enc{display:flex;justify-content:space-between;align-items:center;gap:9px;cursor:pointer}
+.edref .enc b{font-size:13.5px}
+.edref .est{font-size:11.5px;color:var(--tenue);white-space:nowrap}
+.edref .est.ok{color:#51CF66} .edref .est.pg{color:#22D3D3} .edref .est.no{color:#6B7280}
+.edref .cuerpo{display:none;padding:9px 0 3px}
+.edref .cuerpo.on{display:block}
+.edref .par{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:12.5px;color:var(--tenue)}
+.edref .par label{flex:0 0 auto}
+.edref input[type=number],.edref select{background:#120f18;border:1px solid var(--linea);
+  color:var(--txt);border-radius:8px;padding:8px;font-size:15px;min-width:0}
+.edref input[type=number]{width:88px}
+.edref select{flex:1}
 .detkpi .it .des{margin:0;padding:5px 9px;font-size:11.5px;flex:0 0 auto}
 .detkpi .it .fin{display:flex;align-items:center;gap:9px}
 .chip{display:inline-block;background:var(--panel);border:1px solid var(--linea);color:var(--txt);
@@ -1015,6 +1032,50 @@ function listar(a, tope){
 
 
 /* ── al tocar un número de arriba, se abre de quién habla ── */
+/* ── corregir a mano ──
+   El panel sabía sumar, pero no dejaba arreglar nada: ni de quién vino alguien,
+   ni cuánto vale su premio, ni pagar de a una. Esto es esa puerta. */
+function filasEditables(det, refId){
+  const opciones = todosContactos.filter(c=>!c.baja)
+    .map(c=>`<option value="${c.id}"${c.id===refId?" selected":""}>${esc(c.nombre)}</option>`).join("");
+  return det.map(d=>{
+    const est = d.pagado   ? `<span class="est pg">pagada · ${$$(d.premio)}</span>`
+              : d.baja     ? `<span class="est no">fuera de la lista</span>`
+              : d.atendida ? `<span class="est ok">atendida · ${d.cuenta?$$(d.premio)+" por pagar":"sin premio"}</span>`
+              :              `<span class="est">sin atender · ${d.cuenta?$$(d.premio):"sin premio"}</span>`;
+    return `<div class="r">
+      <div class="enc" data-fila="${d.ref}"><b>${esc(d.nombre)}</b>${est}</div>
+      <div class="cuerpo" id="cu-${d.ref}">
+        <div class="par"><label>Premio $</label>
+          <input type="number" min="0" step="1" id="pm-${d.ref}" value="${Number(d.premio||0)}">
+          <button class="mini${d.cuenta?" on":""}" data-cuenta="${d.ref}" data-val="${d.cuenta?1:0}"
+            >${d.cuenta?"✓ sí cuenta":"✗ no cuenta"}</button></div>
+        <div class="par"><label>Vino de</label>
+          <select id="de-${d.ref}">${opciones}</select></div>
+        <button class="mini ed" data-guardaref="${d.ref}">Guardar cambios</button>
+        ${d.pagado
+          ? `<button class="mini des" data-despagar="${d.ref}" data-nom="${esc(d.nombre)}">↶ Deshacer el pago</button>`
+          : d.atendida && d.cuenta && Number(d.premio) > 0
+            ? `<button class="mini on" data-pagauno="${d.ref}" data-nom="${esc(d.nombre)}">💵 Le pagué estos ${$$(d.premio)}</button>`
+            : ""}
+        <button class="mini des" data-quitaref="${d.ref}" data-nom="${esc(d.nombre)}">🗑 No la refirió</button>
+      </div></div>`;
+  }).join("");
+}
+
+async function accionRef(boton, ruta, cuerpo){
+  const antes = boton.textContent;
+  boton.disabled = true; boton.textContent = "guardando…";
+  try{
+    const d = await api(ruta, {method:"POST", body:JSON.stringify(cuerpo)});
+    if (d && d.ok === false){ alert(d.mensaje); boton.disabled=false; boton.textContent=antes; return; }
+    if (d && d.sin_cambios){ alert("No cambiaste nada."); boton.disabled=false; boton.textContent=antes; return; }
+    alert("Listo." + (d && d.cambios && d.cambios.length ? "\n\n· "+d.cambios.join("\n· ")
+                    : d && d.mensaje ? "\n\n"+d.mensaje : ""));
+    await cargar(); pintarTira(); abrirRYG();
+  }catch(e){ alert("⚠ "+e.message); boton.disabled=false; boton.textContent=antes; }
+}
+
 /* ── "me equivoqué, no la atendí" ──
    Un solo toque revierte los cinco rastros que deja marcarla: la ficha, la cita,
    los recordatorios, el 2+2+2 y los $10. Lo mismo desde la tarjeta o desde el KPI. */
@@ -1255,7 +1316,9 @@ async function abrirRYG(){
         ${yaes.map(d=>`<button class="mini des" data-desatender="${d.id}"
             data-nom="${esc(d.nombre)}" title="deshacer: no la atendí"
             >↶ ${esc(d.nombre.split(" ")[0])}</button>`).join("")}
-        ${Number(x.por_pagar)>0?`<button class="mini on" data-pagar="${x.referidora_id}" data-monto="${x.por_pagar}" data-nom="${esc(x.referidora)}">💵 Ya le pagué ${$$(x.por_pagar)}</button>`:""}
+        ${Number(x.por_pagar)>0?`<button class="mini on" data-pagar="${x.referidora_id}" data-monto="${x.por_pagar}" data-nom="${esc(x.referidora)}">💵 Ya le pagué todo ${$$(x.por_pagar)}</button>`:""}
+        <button class="mini ed" data-abrired="${x.referidora_id}">✎ Ver y corregir sus ${det.length}</button>
+        <div class="edref" id="ed-${x.referidora_id}">${filasEditables(det, x.referidora_id)}</div>
         <div id="ryg-${x.referidora_id}"></div>
       </div>`;
     }).join("");
@@ -1282,6 +1345,59 @@ async function abrirRYG(){
     });
     $("#ryg-lista").querySelectorAll("[data-desatender]").forEach(b=>{
       b.onclick = () => desatender(b, b.dataset.desatender, b.dataset.nom);
+    });
+
+    /* ── corregir a mano ── */
+    const L = $("#ryg-lista");
+    L.querySelectorAll("[data-abrired]").forEach(b=>{
+      b.onclick = () => document.getElementById("ed-"+b.dataset.abrired).classList.toggle("on");
+    });
+    L.querySelectorAll("[data-fila]").forEach(f=>{
+      f.onclick = () => document.getElementById("cu-"+f.dataset.fila).classList.toggle("on");
+    });
+    L.querySelectorAll("[data-cuenta]").forEach(b=>{
+      b.onclick = () => {
+        const estaba = b.dataset.val === "1";
+        b.dataset.val = estaba ? "0" : "1";
+        b.classList.toggle("on", !estaba);
+        b.textContent = estaba ? "✗ no cuenta" : "✓ sí cuenta";
+        const pm = document.getElementById("pm-"+b.dataset.cuenta);
+        if (estaba) pm.value = 0; else if (Number(pm.value) === 0) pm.value = 10;
+      };
+    });
+    L.querySelectorAll("[data-guardaref]").forEach(b=>{
+      b.onclick = () => {
+        const id = b.dataset.guardaref;
+        accionRef(b, "/rest/v1/rpc/wlgm_editar_referido", {
+          p_referido:   id,
+          p_premio:     parseFloat(document.getElementById("pm-"+id).value) || 0,
+          p_cuenta:     L.querySelector(`[data-cuenta="${id}"]`).dataset.val === "1",
+          p_referidora: document.getElementById("de-"+id).value });
+      };
+    });
+    L.querySelectorAll("[data-pagauno]").forEach(b=>{
+      b.onclick = () => {
+        const forma = prompt(`¿Cómo le pagaste el premio de ${b.dataset.nom}?\n\n`
+          + `producto · descuento · efectivo · otro`, "producto");
+        if (!forma) return;
+        accionRef(b, "/rest/v1/rpc/wlgm_pagar_referido",
+          { p_referido:b.dataset.pagauno, p_forma:forma.trim().toLowerCase() });
+      };
+    });
+    L.querySelectorAll("[data-despagar]").forEach(b=>{
+      b.onclick = () => {
+        if (!confirm(`¿Deshacer el pago del premio de ${b.dataset.nom}?\n\n`
+          + `Vuelve a quedar como pendiente por pagar.`)) return;
+        accionRef(b, "/rest/v1/rpc/wlgm_deshacer_pago", { p_referido:b.dataset.despagar });
+      };
+    });
+    L.querySelectorAll("[data-quitaref]").forEach(b=>{
+      b.onclick = () => {
+        if (!confirm(`¿${b.dataset.nom} NO fue referida por esta persona?\n\n`
+          + `Se borra solo el vínculo. La ficha de ${b.dataset.nom} no se toca: `
+          + `sigue en tu lista igual que siempre.`)) return;
+        accionRef(b, "/rest/v1/rpc/wlgm_quitar_referido", { p_referido:b.dataset.quitaref });
+      };
     });
     $("#ryg-lista").querySelectorAll("[data-pagar]").forEach(b=>{
       b.onclick = async () => {
