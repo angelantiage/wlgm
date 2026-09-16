@@ -1,22 +1,22 @@
 name: Mantener despierta la base de WLGM
 
-# Supabase pausa los proyectos gratis que pasan 7 días sin actividad.
-# Esto le hace una consulta de solo lectura todos los días para que no se duerma.
-# Si algún día la base no responde, el trabajo falla y GitHub avisa por correo.
+# Supabase pausa los proyectos gratis que pasan días sin actividad.
+# Esto le hace una consulta de solo lectura cada 8 horas para que no se duerma.
+# Si de verdad no responde, el trabajo falla y GitHub avisa por correo.
 
 on:
   schedule:
-    - cron: "17 14 * * *" # todos los días: 8:17 a. m. en Utah en verano, 7:17 a. m. en invierno
+    - cron: "17 */8 * * *" # cada 8 horas: 6:17 p. m., 2:17 a. m. y 10:17 a. m. de Utah (verano)
   workflow_dispatch: # para correrlo a mano desde la pestaña Actions
   push:
     branches: [main]
     paths:
-      - ".github/workflows/mantener-supabase-despierto.yml" # corre una vez al subir este archivo
+      - ".github/workflows/mantener-supabase-despierto.yml" # corre una vez al cambiar este archivo
 
 jobs:
   despertar:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 6
     steps:
       - name: Consulta de solo lectura a Supabase
         env:
@@ -24,12 +24,18 @@ jobs:
           # Llave publicable: es la misma que ya está en app/index.html. No es secreta.
           SUPABASE_KEY: sb_publishable_fuAY6y-PxjNrzr1iLU25ZA_vGM1F9T4
         run: |
-          codigo=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-            -H "apikey: $SUPABASE_KEY" \
-            -H "User-Agent: wlgm-mantener-despierto" \
-            "$SUPABASE_URL/rest/v1/colores?select=*&limit=1")
-          echo "Supabase respondió: $codigo"
-          if [ "$codigo" != "200" ]; then
-            echo "::error::La base de WLGM no respondió 200. Puede estar pausada: entra a supabase.com y dale Resume project."
-            exit 1
-          fi
+          # Hasta 8 intentos: si la base está despertando, no es motivo de alarma.
+          for intento in $(seq 1 8); do
+            codigo=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+              -H "apikey: $SUPABASE_KEY" \
+              -H "User-Agent: wlgm-mantener-despierto" \
+              "$SUPABASE_URL/rest/v1/colores?select=*&limit=1")
+            echo "Intento $intento — Supabase respondió: $codigo"
+            if [ "$codigo" = "200" ]; then
+              echo "La base está despierta."
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::La base de WLGM no respondió 200 en 8 intentos. Puede estar pausada: entra a supabase.com y dale Resume project."
+          exit 1
