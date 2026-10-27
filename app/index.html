@@ -266,6 +266,7 @@ body{margin:0;background:var(--bg);color:var(--txt);
   <div class="marca"><span class="logo">WLGM</span><span class="promesa">Trabaja menos, crece más</span></div>
   <div class="quien"><span id="soy"></span>
     <span style="display:flex;gap:7px">
+      <button class="mas" id="btn-yo" style="background:#241d31;color:#FFD43B">⚙️ Mis datos</button>
       <button class="mas" id="btn-ryg" style="background:#241d31;color:#51CF66">💰 Refiere y Gana</button>
       <button class="mas" id="btn-regalos" style="background:#241d31;color:#B197FC">🎁 Enlaces</button>
       <button class="mas" id="btn-carpeta">+ Referidos</button>
@@ -285,6 +286,44 @@ body{margin:0;background:var(--bg);color:var(--txt);
   <div id="lista"></div>
   <div class="leyenda" id="leyenda"></div>
   <p style="text-align:center;font-size:10.5px;color:#4b4358;margin-top:20px" id="sello">WLGM · 28/08 10:22</p>
+</div>
+
+<div id="pantalla-yo" class="wrap" hidden>
+  <button class="volver" id="btn-volver-yo">← Volver a mi día</button>
+  <div class="marca"><span class="logo" style="font-size:22px">Mis datos</span></div>
+  <p class="explica" id="yo-porque">Esto es lo que el programa usa para escribir <b>en tu nombre</b>.
+     Tu WhatsApp es el que va dentro del enlace de regalo, y tu género hace que los guiones
+     digan <b>“tu Consultora”</b> y no “tu Consultor”.</p>
+
+  <div class="edref on" style="border:0;padding-top:0">
+    <div class="par"><label>Me llamo</label>
+      <input type="text" id="yo-nombre" placeholder="Tu nombre y apellido" style="flex:1"></div>
+
+    <div class="par"><label>Soy</label>
+      <button class="mini" id="yo-f" data-g="f">Consultora</button>
+      <button class="mini" id="yo-m" data-g="m">Consultor</button></div>
+
+    <div class="par"><label>Mi WhatsApp</label>
+      <input type="tel" id="yo-wa" inputmode="numeric" placeholder="10 números" style="flex:1"></div>
+
+    <div class="par"><label>Mi zona</label>
+      <select id="yo-tz">
+        <option value="America/New_York">Hora del Este</option>
+        <option value="America/Chicago">Hora del Centro</option>
+        <option value="America/Denver">Hora de la Montaña (Utah)</option>
+        <option value="America/Phoenix">Arizona</option>
+        <option value="America/Los_Angeles">Hora del Pacífico</option>
+      </select></div>
+
+    <div class="par" style="align-items:flex-start"><label>Cómo me<br>presento</label>
+      <input type="text" id="yo-pres" placeholder="ej: Ana, mi Consultora de Belleza" style="flex:1"></div>
+    <p class="tope" style="margin:0 0 12px">Así te nombra tu clienta cuando le pasa el regalo a una amiga.</p>
+
+    <button class="guardar" id="yo-guardar">Guardar mis datos</button>
+    <div id="yo-msg"></div>
+  </div>
+
+  <div id="yo-equipo"></div>
 </div>
 
 <div id="pantalla-mudanza" class="wrap" hidden>
@@ -457,6 +496,79 @@ async function entrar(nuevo){
   }catch(e){ msg.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
 }
 
+/* ── MIS DATOS ──
+   Cada quien se da de alta sola: su género, su WhatsApp, cómo se presenta.
+   Sin esto, una directora mandaría "tu Consultor" y un enlace de regalo roto. */
+let generoElegido = "f";
+
+function pintarGenero(){
+  $("#yo-f").classList.toggle("on", generoElegido === "f");
+  $("#yo-m").classList.toggle("on", generoElegido === "m");
+}
+
+function abrirYo(porqueFalta){
+  ["#pantalla-app","#pantalla-carpeta","#pantalla-regalos","#pantalla-ryg","#pantalla-mudanza"]
+    .forEach(x=>$(x).hidden = true);
+  $("#pantalla-yo").hidden = false;
+  $("#yo-msg").innerHTML = "";
+  $("#yo-nombre").value = miConsultora.nombre || "";
+  $("#yo-wa").value     = miConsultora.whatsapp || "";
+  $("#yo-pres").value   = miConsultora.presentacion || "";
+  $("#yo-tz").value     = miConsultora.zona_horaria || "America/Denver";
+  generoElegido         = miConsultora.genero || "f";
+  pintarGenero();
+  if (porqueFalta)
+    $("#yo-msg").innerHTML = '<div class="aviso">Antes de empezar, completa esto. '
+      + 'Sobre todo <b>tu WhatsApp</b>: sin él, el enlace de regalo no sabe a dónde mandar a tus referidas.</div>';
+  pintarEquipo();
+}
+
+async function pintarEquipo(){
+  const caja = $("#yo-equipo");
+  if (!miConsultora.puede_invitar){ caja.innerHTML = ""; return; }
+  caja.innerHTML = `<div class="grupo">Mi equipo</div>
+    <p class="explica">Pones su nombre y su correo. <b>Ella escoge su propia contraseña</b> —
+       tú nunca la ves. Entra en el mismo enlace y toca “Es mi primera vez”.</p>
+    <div class="edref on" style="border:0;padding-top:0">
+      <div class="par"><label>Se llama</label>
+        <input type="text" id="inv-nombre" placeholder="Nombre y apellido" style="flex:1"></div>
+      <div class="par"><label>Su correo</label>
+        <input type="email" id="inv-mail" placeholder="correo@ejemplo.com" style="flex:1"></div>
+      <button class="guardar" id="inv-ok">Darla de alta</button>
+      <div id="inv-msg"></div>
+    </div>
+    <div id="equipo-lista"><div class="meta">Buscando…</div></div>`;
+
+  $("#inv-ok").onclick = async () => {
+    const b = $("#inv-ok"), z = $("#inv-msg");
+    b.disabled = true; b.textContent = "Dándola de alta…";
+    try{
+      const d = await api("/rest/v1/rpc/wlgm_invitar", {method:"POST", body:JSON.stringify({
+        p_nombre: $("#inv-nombre").value, p_email: $("#inv-mail").value })});
+      z.innerHTML = d.ok ? '<div class="aviso">'+esc(d.mensaje)+'</div>'
+                         : '<div class="error">'+esc(d.mensaje)+'</div>';
+      if (d.ok){ $("#inv-nombre").value = ""; $("#inv-mail").value = ""; listarEquipo(); }
+    }catch(e){ z.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+    b.disabled = false; b.textContent = "Darla de alta";
+  };
+  listarEquipo();
+}
+
+async function listarEquipo(){
+  const caja = $("#equipo-lista"); if (!caja) return;
+  try{
+    const l = await api("/rest/v1/rpc/wlgm_mi_equipo", {method:"POST", body:"{}"});
+    caja.innerHTML = l.length
+      ? `<div class="detkpi"><h4>Dadas de alta · ${l.length}</h4>` + l.map(x=>`
+          <div class="it"><b>${esc(x.nombre)}</b><span class="fin"><span>
+            ${x.ya_entro ? "✓ ya entró" : "· todavía no entra"}
+            ${x.ya_entro && !x.tiene_whatsapp ? " · <b>le falta su WhatsApp</b>" : ""}
+            ${x.clientas ? " · "+x.clientas+" clientas" : ""}
+            ${x.ia_activa ? " · 🤖" : ""}</span></span></div>`).join("") + `</div>`
+      : '<div class="nadie">Todavía no has dado de alta a nadie.</div>';
+  }catch(e){ caja.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+}
+
 function salir(porSeguridad){
   sesion = null; gente = []; todosContactos = []; atendidas = []; misContactos = [];
   localStorage.removeItem("wlgm_sesion"); localStorage.removeItem("wlgm_visto");
@@ -467,15 +579,37 @@ function salir(porSeguridad){
     ? '<div class="aviso">Cerré tu sesión por seguridad: llevabas rato sin usarla. Entra otra vez.</div>' : "";
   $("#pantalla-app").hidden = true; $("#pantalla-carpeta").hidden = true;
   $("#pantalla-regalos").hidden = true; $("#pantalla-ryg").hidden = true;
-  $("#pantalla-mudanza").hidden = true; $("#pantalla-login").hidden = false;
+  $("#pantalla-mudanza").hidden = true; $("#pantalla-yo").hidden = true;
+  $("#pantalla-login").hidden = false;
 }
+
+$("#btn-yo").onclick = () => abrirYo(false);
+$("#btn-volver-yo").onclick = () => { $("#pantalla-yo").hidden = true; $("#pantalla-app").hidden = false; };
+$("#yo-f").onclick = () => { generoElegido = "f"; pintarGenero(); };
+$("#yo-m").onclick = () => { generoElegido = "m"; pintarGenero(); };
+$("#yo-guardar").onclick = async () => {
+  const b = $("#yo-guardar"), z = $("#yo-msg");
+  b.disabled = true; b.textContent = "Guardando…";
+  try{
+    const d = await api("/rest/v1/rpc/wlgm_mis_datos", {method:"POST", body:JSON.stringify({
+      p_nombre:       $("#yo-nombre").value,
+      p_genero:       generoElegido,
+      p_whatsapp:     $("#yo-wa").value,
+      p_presentacion: $("#yo-pres").value,
+      p_zona_horaria: $("#yo-tz").value })});
+    z.innerHTML = '<div class="aviso">Guardado.' + (d.listo_para_enlaces
+      ? ' Ya puedes mandar enlaces de regalo. 🎁' : '') + '</div>';
+    await cargar(); pintarLista(); pintarTira();
+  }catch(e){ z.innerHTML = '<div class="error">'+esc(e.message)+'</div>'; }
+  b.disabled = false; b.textContent = "Guardar mis datos";
+};
 
 /* ── datos ── */
 async function cargar(){
   const [cola, todos, yo] = await Promise.all([
     api("/rest/v1/mi_dia?select=*&order=orden.asc,proxima_fecha.asc"),
     api("/rest/v1/contactos?select=id,nombre,color,baja,etapa,proxima_fecha,referida_por,telefono&order=nombre.asc"),
-    api("/rest/v1/consultoras?select=nombre,clave,whatsapp,presentacion"),
+    api("/rest/v1/consultoras?select=nombre,clave,whatsapp,presentacion,genero,zona_horaria,puede_invitar,ia_activa"),
   ]);
   gente = cola;
   todosContactos = todos;
@@ -924,7 +1058,10 @@ function msjParaLaClienta(n){
 function msjParaReenviar(n, enlace){
   // Escrito por Angel el 2026-08-27. Es de amiga a amiga, no de negocio a cliente.
   // Lo fuerte no es la oferta: es "TE ESCOGÍ A TI".
-  const yo = miConsultora.presentacion || miConsultora.nombre || "mi Consultor de Belleza";
+  // Casi todas las directoras son mujeres: el guion se adapta a quien lo manda.
+  const ella = (miConsultora.genero || "f") !== "m";
+  const yo = miConsultora.presentacion || miConsultora.nombre
+             || (ella ? "mi Consultora de Belleza" : "mi Consultor de Belleza");
   // OJO: la consultora NO le toca la piel a nadie. La clienta se la trabaja ELLA,
   // bajo su guía. Por eso va en primera persona. Corregido por Angel el 2026-08-27.
   return `💕 ¡Hola, amiga! Acabo de tener una Sesión de Belleza con ${yo}, donde tuve la `
@@ -932,7 +1069,8 @@ function msjParaReenviar(n, enlace){
     + `Me dio la oportunidad de regalarle esa misma experiencia a una amiga… `
     + `¡y te escogí a ti! 🎁\n\nEs completamente gratis y sin ningún compromiso.\n\n`
     + `Aquí puedes reservar 👉 ${enlace}\n\n`
-    + `Se te abre el chat con él y el mensaje ya está escrito: tú nada más le das enviar. 💕`;
+    + `Se te abre el chat con ${ella ? "ella" : "él"} y el mensaje ya está escrito: `
+    + `tú nada más le das enviar. 💕`;
 }
 
 function pintarRegalo(){
@@ -1437,6 +1575,8 @@ async function arrancar(){
     await cargar();
     $("#pantalla-login").hidden = true; $("#pantalla-app").hidden = false;
     pintarTira(); pintarLista(); verCampana();
+    // Primera vez: sin WhatsApp el enlace de regalo no funciona. La llevamos ahí sola.
+    if (!(miConsultora.whatsapp||"").replace(/\D/g,"")) abrirYo(true);
   }catch(e){
     salir();
     $("#login-msg").innerHTML = '<div class="error">'+esc(e.message)+
