@@ -732,6 +732,21 @@ function pintarLista(){
 /* ── probar la IA con una persona, sin mandarle nada a nadie ── */
 const charlas = {};
 
+/* Lo que costó ESTA respuesta, en plata de verdad.
+   Tarifa por millón de tokens · el caché de 1 hora se guarda al doble y se lee casi gratis. */
+const TARIFA = {
+  "claude-opus-5-5":   { entrada: 4,  salida: 20, guardar: 8,   leer: 0.20 },
+  "claude-opus-5":     { entrada: 5,  salida: 25, guardar: 10,  leer: 0.50 },
+  "claude-sonnet-5-5": { entrada: 2,  salida: 10, guardar: 4,   leer: 0.20 },
+  "claude-haiku-5-5":  { entrada: 0.10, salida: 0.50, guardar: 0.20, leer: 0.01 },
+};
+function centavos(g){
+  const t = TARIFA[g.modelo]; if (!t) return "";
+  const d = ((g.entrada||0)*t.entrada + (g.salida||0)*t.salida
+           + (g.cache_escrito||0)*t.guardar + (g.cache_leido||0)*t.leer) / 1e6;
+  return d < 0.01 ? `menos de 1¢` : `${(d*100).toFixed(1)}¢`;
+}
+
 async function probarIA(p, texto){
   const chat = document.getElementById("chat-"+p.id);
   const inp  = document.getElementById("in-"+p.id);
@@ -768,9 +783,11 @@ async function probarIA(p, texto){
 
     chat.insertAdjacentHTML("beforeend", extra +
       `<div class="burb ia"><b>la IA contestaría</b>${esc(d.mensaje)}</div>` +
-      `<div class="gasto">${d.gasto.entrada} entrada · ${d.gasto.salida} salida`
-      + (d.gasto.cache_leido ? ` · ${d.gasto.cache_leido} leídos de caché ✓` : "")
-      + (d.gasto.cache_escrito ? ` · ${d.gasto.cache_escrito} guardados en caché` : "") + `</div>`);
+      `<div class="gasto">${centavos(d.gasto)} · ${d.gasto.cache}`
+      + `<br>${d.gasto.entrada} entrada · ${d.gasto.salida} salida`
+      + (d.gasto.cache_leido ? ` · ${d.gasto.cache_leido} del caché` : "")
+      + (d.gasto.cache_escrito ? ` · ${d.gasto.cache_escrito} guardados` : "")
+      + `<br>guiones: ${esc((d.grupo||[]).map(g=>g.replace(/^mision-\d-|^banco-de-objeciones-/,"")).join(" · "))}</div>`);
   }catch(e){
     document.getElementById("pensando")?.remove();
     chat.insertAdjacentHTML("beforeend", `<div class="error">${esc(e.message)}</div>`);
